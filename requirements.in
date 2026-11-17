@@ -1,0 +1,10 @@
+# Vendor-compatible starting point, NOT the tested lock. See requirements.lock after smoke tests.
+# Install torch/vision/audio first from https://download.pytorch.org/whl/cu128.
+-c constraints-whisperx-3.8.6.txt
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+whisperx==3.8.6
+transformers<5
+psutil>=7
+pytest>=8

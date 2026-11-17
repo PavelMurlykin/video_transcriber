@@ -208,6 +208,14 @@ cython_debug/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
 
+# Local audio, weights, tooling and inference outputs are private/local-only.
+sample/
+models/
+.tools/
+artifacts/
+config.local.json
+*.local.json
+
 # Ruff stuff:
 .ruff_cache/
 

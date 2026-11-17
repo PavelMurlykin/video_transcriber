@@ -1,0 +1,184 @@
+{
+  "mp3-first": {
+    "status": "completed",
+    "duration_ms": 58839,
+    "wall_seconds": 115.73357609999948,
+    "speaker_count": 2,
+    "segment_count": 57,
+    "segments_requiring_review": 31,
+    "os_network_block_verified": true,
+    "versions": {
+      "torch": "2.8.0+cu128",
+      "torchaudio": "2.8.0+cu128",
+      "torchvision": "0.23.0+cu128",
+      "whisperx": "3.8.6",
+      "ctranslate2": "4.6.0",
+      "faster-whisper": "1.2.0",
+      "pyannote.audio": "4.0.4",
+      "transformers": "4.57.6"
+    },
+    "profile": {
+      "device": "cuda",
+      "compute_type": "float16",
+      "batch_size": 4,
+      "num_speakers": 2,
+      "beam_size": 5,
+      "language": "ru"
+    },
+    "stages": [
+      {
+        "stage": "audio",
+        "wall_seconds": 0.14594400000351015,
+        "status": "completed"
+      },
+      {
+        "stage": "asr",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 260831744,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 20971520
+        },
+        "exit_code": 0,
+        "wall_seconds": 53.552497699995,
+        "sampled_peak_gpu_used_mib": 5853,
+        "sampled_peak_process_tree_rss_bytes": 3971342336,
+        "samples": 94,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "alignment",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 1946971136,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 41943040
+        },
+        "exit_code": 0,
+        "wall_seconds": 26.5005702999988,
+        "sampled_peak_gpu_used_mib": 2923,
+        "sampled_peak_process_tree_rss_bytes": 1960665088,
+        "samples": 48,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "diarization",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 1707943936,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 20971520
+        },
+        "exit_code": 0,
+        "wall_seconds": 31.612783099997614,
+        "sampled_peak_gpu_used_mib": 3169,
+        "sampled_peak_process_tree_rss_bytes": 1923600384,
+        "samples": 57,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "merge",
+        "status": "completed",
+        "wall_seconds": 0.021589700001641177,
+        "gpu_used_mib_after_worker_exit": 635
+      }
+    ]
+  },
+  "mp4-offline": {
+    "status": "completed",
+    "duration_ms": 58839,
+    "wall_seconds": 107.93669110000337,
+    "speaker_count": 2,
+    "segment_count": 56,
+    "segments_requiring_review": 29,
+    "os_network_block_verified": true,
+    "versions": {
+      "torch": "2.8.0+cu128",
+      "torchaudio": "2.8.0+cu128",
+      "torchvision": "0.23.0+cu128",
+      "whisperx": "3.8.6",
+      "ctranslate2": "4.6.0",
+      "faster-whisper": "1.2.0",
+      "pyannote.audio": "4.0.4",
+      "transformers": "4.57.6"
+    },
+    "profile": {
+      "device": "cuda",
+      "compute_type": "float16",
+      "batch_size": 4,
+      "num_speakers": 2,
+      "beam_size": 5,
+      "language": "ru"
+    },
+    "stages": [
+      {
+        "stage": "audio",
+        "wall_seconds": 0.18424550000054296,
+        "status": "completed"
+      },
+      {
+        "stage": "asr",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 260831744,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 20971520
+        },
+        "exit_code": 0,
+        "wall_seconds": 45.633233100001235,
+        "sampled_peak_gpu_used_mib": 5821,
+        "sampled_peak_process_tree_rss_bytes": 3669426176,
+        "samples": 80,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "alignment",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 1946971136,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 41943040
+        },
+        "exit_code": 0,
+        "wall_seconds": 26.481523800001014,
+        "sampled_peak_gpu_used_mib": 2923,
+        "sampled_peak_process_tree_rss_bytes": 1733357568,
+        "samples": 47,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "diarization",
+        "status": "completed",
+        "torch_peak_allocated_bytes": 1707943936,
+        "after_release": {
+          "allocated_bytes": 8519680,
+          "reserved_bytes": 20971520
+        },
+        "exit_code": 0,
+        "wall_seconds": 32.36468389999936,
+        "sampled_peak_gpu_used_mib": 3169,
+        "sampled_peak_process_tree_rss_bytes": 1913589760,
+        "samples": 58,
+        "sampling_interval_seconds": 0.5,
+        "gpu_measurement_scope": "whole_device_including_other_processes",
+        "gpu_used_mib_after_worker_exit": 635
+      },
+      {
+        "stage": "merge",
+        "status": "completed",
+        "wall_seconds": 0.02231259999825852,
+        "gpu_used_mib_after_worker_exit": 635
+      }
+    ]
+  }
+}

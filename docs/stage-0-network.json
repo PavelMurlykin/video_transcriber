@@ -1,0 +1,56 @@
+{
+  "mp3": {
+    "os_isolation": {
+      "verified": true,
+      "is_appcontainer": true,
+      "network_capabilities_present": []
+    },
+    "unguarded_probes": [
+      {
+        "probe": "1.1.1.1:443",
+        "blocked": true,
+        "winerror": 10013,
+        "error_type": "PermissionError"
+      },
+      {
+        "probe": "8.8.8.8:443",
+        "blocked": true,
+        "winerror": 10013,
+        "error_type": "PermissionError"
+      },
+      {
+        "probe": "dns:huggingface.co",
+        "blocked": true,
+        "error_type": "gaierror"
+      }
+    ],
+    "verified": true
+  },
+  "mp4": {
+    "os_isolation": {
+      "verified": true,
+      "is_appcontainer": true,
+      "network_capabilities_present": []
+    },
+    "unguarded_probes": [
+      {
+        "probe": "1.1.1.1:443",
+        "blocked": true,
+        "winerror": 10013,
+        "error_type": "PermissionError"
+      },
+      {
+        "probe": "8.8.8.8:443",
+        "blocked": true,
+        "winerror": 10013,
+        "error_type": "PermissionError"
+      },
+      {
+        "probe": "dns:huggingface.co",
+        "blocked": true,
+        "error_type": "gaierror"
+      }
+    ],
+    "verified": true
+  }
+}

@@ -1,0 +1,646 @@
+{
+  "schema_version": 1,
+  "models": {
+    "asr": {
+      "source": "Systran/faster-whisper-large-v3",
+      "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
+      "license": "MIT",
+      "required_files": [
+        "config.json",
+        "model.bin",
+        "tokenizer.json",
+        "preprocessor_config.json",
+        "vocabulary.json"
+      ],
+      "files": [
+        {
+          "path": ".gitattributes",
+          "size": 1519,
+          "sha256": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361"
+        },
+        {
+          "path": "config.json",
+          "size": 2394,
+          "sha256": "a9306624f5ec14270a014b647e5c316b6e03a662c369758d1b90697a7b0655b9"
+        },
+        {
+          "path": "model.bin",
+          "size": 3087284237,
+          "sha256": "69f74147e3334731bc3a76048724833325d2ec74642fb52620eda87352e3d4f1"
+        },
+        {
+          "path": "preprocessor_config.json",
+          "size": 340,
+          "sha256": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711"
+        },
+        {
+          "path": "README.md",
+          "size": 2052,
+          "sha256": "39e96252229f5a3d0141dc81afb65a36fd205461ac21e5b70f2cd1248ef0082c"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 2480617,
+          "sha256": "6d8cbd7cd0d8d5815e478dac67b85a26bbe77c1f5e0c6d76d1ce2abc0e5f21ca"
+        },
+        {
+          "path": "vocabulary.json",
+          "size": 1068114,
+          "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+        }
+      ]
+    },
+    "diarization": {
+      "source": "pyannote/speaker-diarization-community-1",
+      "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee",
+      "license": "CC-BY-4.0",
+      "required_files": [
+        "config.yaml"
+      ],
+      "files": [
+        {
+          "path": ".gitattributes",
+          "size": 1571,
+          "sha256": "5ca5d721264b62c84e55b912e7cdb019439cad30d41df8aeea3a23f9b1f86ef3"
+        },
+        {
+          "path": "config.yaml",
+          "size": 444,
+          "sha256": "5ce2bfa9a938dc132cec1172592d65173cbb8f444ea1e4133f10f9391de155be"
+        },
+        {
+          "path": "diarization.gif",
+          "size": 861445,
+          "sha256": "0d925ad38995d89009260e493b0ae2e684c3e1397f495265ed841c45c4f73a35"
+        },
+        {
+          "path": "embedding/pytorch_model.bin",
+          "size": 26646242,
+          "sha256": "6f10ff60898a1d185fa22e1d11e0bfa8a92efec811f11bca48cb8cafebefd929"
+        },
+        {
+          "path": "embedding/README.md",
+          "size": 938,
+          "sha256": "fa9e5105ae95edb231d841476cdb91eef4be0621c372ed4f7d3421294b5f8ad7"
+        },
+        {
+          "path": "plda/plda.npz",
+          "size": 133852,
+          "sha256": "9b77bcd840692710dd3496f62ecfeed8d8e5f002fd991b785079b244eab7d255"
+        },
+        {
+          "path": "plda/README.md",
+          "size": 220,
+          "sha256": "e1316dbbeb3261431478d48ceebbd4bba395c3587e7b80c254dbab00f1209d0a"
+        },
+        {
+          "path": "plda/xvec_transform.npz",
+          "size": 134376,
+          "sha256": "325f1ce8e48f7e55e9c8aa47e05d2766b7c48c4b25b8de8dd751e7a4cc5fbe8f"
+        },
+        {
+          "path": "README.md",
+          "size": 9978,
+          "sha256": "2db91f9265bd81f1653ff088b5bff22bf6aebebea03328513af65501643f8a31"
+        },
+        {
+          "path": "segmentation/pytorch_model.bin",
+          "size": 5906507,
+          "sha256": "7ad24338d844fb95985486eb1a464e32d229f6d7a03c9abe60f978bacf3f816e"
+        }
+      ]
+    },
+    "alignment": {
+      "source": "jonatasgrosman/wav2vec2-large-xlsr-53-russian",
+      "revision": "2329100508896c6d9b157019803ab5601e6f3406",
+      "license": "Apache-2.0",
+      "required_files": [
+        "config.json",
+        "preprocessor_config.json",
+        "vocab.json",
+        "special_tokens_map.json"
+      ],
+      "files": [
+        {
+          "path": ".gitattributes",
+          "size": 736,
+          "sha256": "989510633921a32875e2290fefbac3b82b1803a98c40d489ee3e7d7c47ae7d21"
+        },
+        {
+          "path": "alphabet.json",
+          "size": 263,
+          "sha256": "3cde6d3da15a0573fd80c8c730960acd712cbafef3d1e32809eee9dbf30520ce"
+        },
+        {
+          "path": "config.json",
+          "size": 1782,
+          "sha256": "9f02bcac826a79be1bc20cff20fb2ed830f3538ec282c65050f9195d61499deb"
+        },
+        {
+          "path": "eval.py",
+          "size": 6198,
+          "sha256": "9873f495d1b1768853bde2bf9f2ebf280a3f5e765e2ab8f67b75421ea4aa525f"
+        },
+        {
+          "path": "full_eval.sh",
+          "size": 1372,
+          "sha256": "1ad8317518e0e943fb5f900ffd2b72206d865658c9b0b935d881b8c36f2cb18a"
+        },
+        {
+          "path": "language_model/attrs.json",
+          "size": 78,
+          "sha256": "f5ffd02e1ceef6517476e72ebe7997ddef7e92d27cb5a23d6695d64c4317d6ad"
+        },
+        {
+          "path": "language_model/unigrams.txt",
+          "size": 32849086,
+          "sha256": "e7c72ae916afa54951fe3bd6094c95e2895c1c7881a20e02ef640aa27cdb4874"
+        },
+        {
+          "path": "log_mozilla-foundation_common_voice_6_0_ru_test_predictions.txt",
+          "size": 1054272,
+          "sha256": "5bd10e81f5541d6e784d768d81f8cc9443793e4391bb5d19bdde525d7c4257af"
+        },
+        {
+          "path": "log_mozilla-foundation_common_voice_6_0_ru_test_predictions_greedy.txt",
+          "size": 1054819,
+          "sha256": "87e25a8ed8fa04af413d81a6b23d0da7c47632c9e9180fe04cc0a2c60bbe5dc1"
+        },
+        {
+          "path": "log_mozilla-foundation_common_voice_6_0_ru_test_targets.txt",
+          "size": 1057641,
+          "sha256": "84095fdda745e72b5a6997c65a720f794d7ee5e8518f625e2620c7a6332485e5"
+        },
+        {
+          "path": "log_speech-recognition-community-v2_dev_data_ru_validation_predictions.txt",
+          "size": 211890,
+          "sha256": "2a4ff4b0085ac6b038f1db2b07e5837f21a8161b6022e244a72e8b76a91c220c"
+        },
+        {
+          "path": "log_speech-recognition-community-v2_dev_data_ru_validation_predictions_greedy.txt",
+          "size": 212316,
+          "sha256": "2b8c68580733c27506f3fabb3b116aca2e0ed05459ad149983025395605a57d4"
+        },
+        {
+          "path": "log_speech-recognition-community-v2_dev_data_ru_validation_targets.txt",
+          "size": 206000,
+          "sha256": "2adcd40fbd916424668e0a9d91d43022a68566c1c4894a8f60cb82e0f621316e"
+        },
+        {
+          "path": "mozilla-foundation_common_voice_6_0_ru_test_eval_results.txt",
+          "size": 50,
+          "sha256": "13c00b2498a96e293820536401d12cbca066369762537fbf52659cb0954ffef4"
+        },
+        {
+          "path": "mozilla-foundation_common_voice_6_0_ru_test_eval_results_greedy.txt",
+          "size": 49,
+          "sha256": "24b95eed95c2d3827f47effa96dcd47266f4277f9e0ae3523350b58db522ddfd"
+        },
+        {
+          "path": "preprocessor_config.json",
+          "size": 262,
+          "sha256": "ca5999a45e98bb76ea87a461ba28a23ad32a5bb9f733b8e0f6546ff38b6c612d"
+        },
+        {
+          "path": "pytorch_model.bin",
+          "size": 1262093719,
+          "sha256": "d1cdb1a7921de7d363f967a9b0101a713602e109dba62b6f3f9ae2e0b2df0c1c"
+        },
+        {
+          "path": "README.md",
+          "size": 6912,
+          "sha256": "eb1f91a52c05d71fcef8b50615f255f17ba5c6fcdb8c1207a2971e041c224fc9"
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 85,
+          "sha256": "bb7068de1150661a10b55f9e4b12a0e77af8bf91f5e45e1b58afaf1d0e17f675"
+        },
+        {
+          "path": "speech-recognition-community-v2_dev_data_ru_validation_eval_results.txt",
+          "size": 48,
+          "sha256": "82b10c9816f662e81c7bb8526638e692582d30be5bbaa2540c4036a2410f979e"
+        },
+        {
+          "path": "speech-recognition-community-v2_dev_data_ru_validation_eval_results_greedy.txt",
+          "size": 48,
+          "sha256": "37ca846ed82ea830535e075d06b34f95346882d0e29e0e226df21635fd5e0cca"
+        },
+        {
+          "path": "vocab.json",
+          "size": 387,
+          "sha256": "3def5e6b6c6fcbe9a674e58b8f7f9e608742414db0188ec50bb3ac565612f0d7"
+        }
+      ]
+    },
+    "vad": {
+      "source": "https://github.com/m-bain/whisperX/tree/v3.8.6/whisperx/assets",
+      "revision": "3.8.6",
+      "license": "LicenseRef-WhisperX-VAD-see-upstream",
+      "files": [
+        {
+          "path": "pytorch_model.bin",
+          "size": 17719103,
+          "sha256": "0b5b3216d60a2d32fc086b47ea8c67589aaeb26b7e07fcbe620d6d0b83e209ea"
+        }
+      ]
+    },
+    "nltk_data": {
+      "source": "https://github.com/nltk/nltk_data/tree/gh-pages/packages/tokenizers",
+      "revision": "punkt_tab-content-sha256",
+      "license": "LicenseRef-Punkt-see-upstream",
+      "files": [
+        {
+          "path": "tokenizers/punkt_tab/czech/abbrev_types.txt",
+          "size": 462,
+          "sha256": "8eb1feb5a6a46f9bd8f6a5ae58e218428a65b459b5ebd61668d83fa80acfc329"
+        },
+        {
+          "path": "tokenizers/punkt_tab/czech/collocations.tab",
+          "size": 1390,
+          "sha256": "fd58f549658c8389be32577e232187be9376c79708f66c60388a84916c8f3f3d"
+        },
+        {
+          "path": "tokenizers/punkt_tab/czech/ortho_context.tab",
+          "size": 684150,
+          "sha256": "451cb1a68a03ba88ced1247e6bb48c442e87dce1c9f463104618fac509866cd4"
+        },
+        {
+          "path": "tokenizers/punkt_tab/czech/sent_starters.txt",
+          "size": 352,
+          "sha256": "42f1de18ab29f9842113b87ec020202c0c25316c97d37f968435a7c7ee3018ca"
+        },
+        {
+          "path": "tokenizers/punkt_tab/danish/abbrev_types.txt",
+          "size": 1130,
+          "sha256": "4a358b26b7ba372cab3cedeb43b4e99a76ae9d01150493964141eb42a62e4a6e"
+        },
+        {
+          "path": "tokenizers/punkt_tab/danish/collocations.tab",
+          "size": 1693,
+          "sha256": "b003d3b839afd47afa81d64620a1cf15b75b944212a7f3ee6a7571f041ae02ec"
+        },
+        {
+          "path": "tokenizers/punkt_tab/danish/ortho_context.tab",
+          "size": 743835,
+          "sha256": "59d7ccda7b1eef6cbcddb6d2f1930c255a5d43600e66e32eff28eab8190c0727"
+        },
+        {
+          "path": "tokenizers/punkt_tab/danish/sent_starters.txt",
+          "size": 415,
+          "sha256": "f8dd41bdb1bb633574b22d38205e1c073639a0b80cb9591964bf92d84317527f"
+        },
+        {
+          "path": "tokenizers/punkt_tab/dutch/abbrev_types.txt",
+          "size": 434,
+          "sha256": "dcd4af07101692c986049ba07abcd6b7c1a2464ef4e46a932cf92d6e220388dd"
+        },
+        {
+          "path": "tokenizers/punkt_tab/dutch/collocations.tab",
+          "size": 623,
+          "sha256": "9a013563bce4637595a6db9d2eeb0ab3f68685d704ae20d97ad718aa91afbe4a"
+        },
+        {
+          "path": "tokenizers/punkt_tab/dutch/ortho_context.tab",
+          "size": 428403,
+          "sha256": "e2077b5748564a9666e437c0a96ea9c5bed0fe3ab5c756535584785d3af20fc9"
+        },
+        {
+          "path": "tokenizers/punkt_tab/dutch/sent_starters.txt",
+          "size": 310,
+          "sha256": "734454acc5952d91a1dfaca8cdfdabb715d8cdd35789c749528639d80751f45c"
+        },
+        {
+          "path": "tokenizers/punkt_tab/english/abbrev_types.txt",
+          "size": 619,
+          "sha256": "92a3e070f43d9b4c5534758ca40ad7343b04e7e29bfe0c2eb658a39445a4f779"
+        },
+        {
+          "path": "tokenizers/punkt_tab/english/collocations.tab",
+          "size": 594,
+          "sha256": "8e2da1225e4dd2cc9dba261ee231ccb134859e21b46006e7f472c5ee269af0cf"
+        },
+        {
+          "path": "tokenizers/punkt_tab/english/ortho_context.tab",
+          "size": 236303,
+          "sha256": "4bbcca25ed3d3f06c02402abf8419b9f033b8adc06e7b482eca4e45f81a5dc4c"
+        },
+        {
+          "path": "tokenizers/punkt_tab/english/sent_starters.txt",
+          "size": 241,
+          "sha256": "f3f8535483e1dba487241b764945168123bca3209a9645e59acd1225dc76edac"
+        },
+        {
+          "path": "tokenizers/punkt_tab/estonian/abbrev_types.txt",
+          "size": 224,
+          "sha256": "0307878fb32af1e21d8f3ba0644e39c89602f2f8aa4e4304943f7e9e0fd081b2"
+        },
+        {
+          "path": "tokenizers/punkt_tab/estonian/collocations.tab",
+          "size": 1825,
+          "sha256": "f1400a7ebf3c82a3d5aac886eb5bf06a1a840946cf052bb1532da7c25094797f"
+        },
+        {
+          "path": "tokenizers/punkt_tab/estonian/ortho_context.tab",
+          "size": 936992,
+          "sha256": "768b7e6e2ba93ff096e244af175c343b1a73463c4a1b99beebe6a9aa57ea1d78"
+        },
+        {
+          "path": "tokenizers/punkt_tab/estonian/sent_starters.txt",
+          "size": 679,
+          "sha256": "7ade7bb8ca7c527aac09517a6efbdf4f749e9a9fc0e43d2856c58be847030c83"
+        },
+        {
+          "path": "tokenizers/punkt_tab/finnish/abbrev_types.txt",
+          "size": 484,
+          "sha256": "7829baabcb5d69e26232839a1f5b6bc6d12b0e59b7f0a65f6ab1c163acbeb800"
+        },
+        {
+          "path": "tokenizers/punkt_tab/finnish/collocations.tab",
+          "size": 3046,
+          "sha256": "4d717a1b4d1fb7108ca9c9ed2cc63f8b4813cfaf73819e96fce79495ddc48292"
+        },
+        {
+          "path": "tokenizers/punkt_tab/finnish/ortho_context.tab",
+          "size": 1189717,
+          "sha256": "43e55a8bfa977561337a09105c570036df11346c6f91e57d8631520eefb26167"
+        },
+        {
+          "path": "tokenizers/punkt_tab/finnish/sent_starters.txt",
+          "size": 810,
+          "sha256": "ab81cf3b774ef068ac98adb99fcb3b1a05caf0423bdfa302bdc285e15597567f"
+        },
+        {
+          "path": "tokenizers/punkt_tab/french/abbrev_types.txt",
+          "size": 245,
+          "sha256": "01747ecfed08830d582d8c94634b63a36da316c0a67feec2871cf03f0dd5c657"
+        },
+        {
+          "path": "tokenizers/punkt_tab/french/collocations.tab",
+          "size": 334,
+          "sha256": "8ddf150ef5a0d22694e7c4d807f80b6d55da731ca81ea139633f560b378af990"
+        },
+        {
+          "path": "tokenizers/punkt_tab/french/ortho_context.tab",
+          "size": 334275,
+          "sha256": "7090ef4292647d4fe137159bd768a5304015d0614d59fdcfc30b2389634365ac"
+        },
+        {
+          "path": "tokenizers/punkt_tab/french/sent_starters.txt",
+          "size": 233,
+          "sha256": "b45a1ebdae9cdf46cf2e8be016b4718bf4f825445fc783d445faf0cfb2d569f8"
+        },
+        {
+          "path": "tokenizers/punkt_tab/german/abbrev_types.txt",
+          "size": 246,
+          "sha256": "259e5d78bc9d61a12d55ba47552c4e9c5ca08364d78a4669e864fd6de86818e3"
+        },
+        {
+          "path": "tokenizers/punkt_tab/german/collocations.tab",
+          "size": 527,
+          "sha256": "f77bd513f42e8179f5c932111c312be353d5913387d0bfe90a95c109111bca25"
+        },
+        {
+          "path": "tokenizers/punkt_tab/german/ortho_context.tab",
+          "size": 943500,
+          "sha256": "023887e78cfb919f1a00f9a96a88f42131582748cf833fd469490ee66596307c"
+        },
+        {
+          "path": "tokenizers/punkt_tab/german/sent_starters.txt",
+          "size": 762,
+          "sha256": "fe4b63edbdd33f78ba0a755f035680a864948b145ae82fc99072440a62a77acd"
+        },
+        {
+          "path": "tokenizers/punkt_tab/greek/abbrev_types.txt",
+          "size": 570,
+          "sha256": "0d56253b7ebc83f0f2403479bcf2b8ea51ffdea89ee60e34018eb32e4750d683"
+        },
+        {
+          "path": "tokenizers/punkt_tab/greek/collocations.tab",
+          "size": 118,
+          "sha256": "0fd732534d56177c80874125ca894ae60aee7b052ee2865a405b454cfd737a6f"
+        },
+        {
+          "path": "tokenizers/punkt_tab/greek/ortho_context.tab",
+          "size": 632838,
+          "sha256": "a87e4467791f974f808c0d396f6c82cd3a014d4fb4458a2287e2fcbce7084e9c"
+        },
+        {
+          "path": "tokenizers/punkt_tab/greek/sent_starters.txt",
+          "size": 567,
+          "sha256": "1a450aec85164e3fbfeb814768c9f120abd7139726af5bb5e2a577096739ca8e"
+        },
+        {
+          "path": "tokenizers/punkt_tab/italian/abbrev_types.txt",
+          "size": 534,
+          "sha256": "5d406f6bfb35e55f6bea282bf148bdcc9e4677860eb01a8e67c34b894274ac50"
+        },
+        {
+          "path": "tokenizers/punkt_tab/italian/collocations.tab",
+          "size": 53,
+          "sha256": "8167b58a049bb04de8d692ed33d72963503a061717cd37cacb33bb2d00669caf"
+        },
+        {
+          "path": "tokenizers/punkt_tab/italian/ortho_context.tab",
+          "size": 369822,
+          "sha256": "462ffd48bc1c9b86efe66d04d826cd1e7a5745be871b8121759ed2920a967370"
+        },
+        {
+          "path": "tokenizers/punkt_tab/italian/sent_starters.txt",
+          "size": 208,
+          "sha256": "4dc2cdfda34d4f286e5875d6b62b148771a799a71f0d45b504da23cb61b59d51"
+        },
+        {
+          "path": "tokenizers/punkt_tab/malayalam/abbrev_types.txt",
+          "size": 4714,
+          "sha256": "1ea2cd01629c8cbeac0799d39383e10c4d6948734c255d37e3ceda550ba62464"
+        },
+        {
+          "path": "tokenizers/punkt_tab/malayalam/collocations.tab",
+          "size": 3422,
+          "sha256": "71bc38e42133f288c660a338169d8858944135282ad4166a2c5d23cc8a06ed73"
+        },
+        {
+          "path": "tokenizers/punkt_tab/malayalam/ortho_context.tab",
+          "size": 118161,
+          "sha256": "5289e43f46ef3679f4ebbed95ef1fad5b64dd7aa8957042adb2b661cc6ae4425"
+        },
+        {
+          "path": "tokenizers/punkt_tab/malayalam/sent_starters.txt",
+          "size": 106,
+          "sha256": "918c902aa9d0b72700410258274ae335da51148fee7fc27095ab4114b23a245c"
+        },
+        {
+          "path": "tokenizers/punkt_tab/norwegian/abbrev_types.txt",
+          "size": 496,
+          "sha256": "beced74076edabe64f45effb823012d1396db41f35fa1d8be2ac6b69bf7bc40f"
+        },
+        {
+          "path": "tokenizers/punkt_tab/norwegian/collocations.tab",
+          "size": 869,
+          "sha256": "9c815b01e2f7518552b53f09012644df1fa0d8c7642baff9dc5f61e85e0be422"
+        },
+        {
+          "path": "tokenizers/punkt_tab/norwegian/ortho_context.tab",
+          "size": 734070,
+          "sha256": "57ea2aa129de6ae414cd0cbecba8b2399c4fde775a2145776a7e8f1023f3f183"
+        },
+        {
+          "path": "tokenizers/punkt_tab/norwegian/sent_starters.txt",
+          "size": 378,
+          "sha256": "2b49ef0f0c2e1b4e8b06aee1172e4d88ce6ad01486fe4182cff6fc443a73ddeb"
+        },
+        {
+          "path": "tokenizers/punkt_tab/polish/abbrev_types.txt",
+          "size": 973,
+          "sha256": "426ea37ca486d0dcc3653653c613d853d0bb3929037f8ee6bf6c12ddae873aa1"
+        },
+        {
+          "path": "tokenizers/punkt_tab/polish/collocations.tab",
+          "size": 1101,
+          "sha256": "961653f0606d85ecb8a760cad4f69df123f010bc4b35de0253feb2d7869666b4"
+        },
+        {
+          "path": "tokenizers/punkt_tab/polish/ortho_context.tab",
+          "size": 1066577,
+          "sha256": "f770804067012ee5707ffc65d90523180e09bab09230a49251777be821a1a4f6"
+        },
+        {
+          "path": "tokenizers/punkt_tab/polish/sent_starters.txt",
+          "size": 518,
+          "sha256": "8564076ae22be3d549a3f097a18458ac2967d65bd28dad7cc223c53f5ce27d1b"
+        },
+        {
+          "path": "tokenizers/punkt_tab/portuguese/abbrev_types.txt",
+          "size": 301,
+          "sha256": "cd5c3cf9c4c8b766bc9edbc96444b0e2189b837b26c583aa2cce83a18e4285f5"
+        },
+        {
+          "path": "tokenizers/punkt_tab/portuguese/collocations.tab",
+          "size": 64,
+          "sha256": "a150d2ca3b8bd9d87cd25f2e1d2142607cdf9344efe914bd034af6017a16d841"
+        },
+        {
+          "path": "tokenizers/punkt_tab/portuguese/ortho_context.tab",
+          "size": 363124,
+          "sha256": "2d9c143f7b322fc74738a21e0b2b04feed1668245ac93e5a8e5399e6e0d8ed8a"
+        },
+        {
+          "path": "tokenizers/punkt_tab/portuguese/sent_starters.txt",
+          "size": 209,
+          "sha256": "7b7f4a1586b1df8592bf294c8dd0d19aaf90740d78ce3b40a31eff2b9669d15e"
+        },
+        {
+          "path": "tokenizers/punkt_tab/README",
+          "size": 8574,
+          "sha256": "d3251cae66a9359bd68c039e3a46172a05ca9df0b27dcdfa23ae594d68d27ec4"
+        },
+        {
+          "path": "tokenizers/punkt_tab/russian/abbrev_types.txt",
+          "size": 15363,
+          "sha256": "75191526be516a9918948fe3ad46f6c2c4dee14314359a899b8c2ebf496cb631"
+        },
+        {
+          "path": "tokenizers/punkt_tab/russian/collocations.tab",
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tokenizers/punkt_tab/russian/ortho_context.tab",
+          "size": 10,
+          "sha256": "b296cba91006569d3ef79eb2cff2378bf5be5b75e9e83ea119b883d3c3ee69b6"
+        },
+        {
+          "path": "tokenizers/punkt_tab/russian/sent_starters.txt",
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "tokenizers/punkt_tab/slovene/abbrev_types.txt",
+          "size": 280,
+          "sha256": "b1d6b16d1d2b3c0c4132c1528b9843d1557f7f544044db27f4e8d2d6985faf2b"
+        },
+        {
+          "path": "tokenizers/punkt_tab/slovene/collocations.tab",
+          "size": 1131,
+          "sha256": "4c10daafdff496e369f3a8809bebf187abc851df630457ae93c7ca4fda350651"
+        },
+        {
+          "path": "tokenizers/punkt_tab/slovene/ortho_context.tab",
+          "size": 445129,
+          "sha256": "3ba826bdd7e5543af7af8e317d4652ba8b47fd812157855a6274ec1387a46b3e"
+        },
+        {
+          "path": "tokenizers/punkt_tab/slovene/sent_starters.txt",
+          "size": 358,
+          "sha256": "85ae14dadef3c4c9f753491d84919abb10e09003adfe248794d4a597fabc5793"
+        },
+        {
+          "path": "tokenizers/punkt_tab/spanish/abbrev_types.txt",
+          "size": 234,
+          "sha256": "246a4b3efbad45b63eb9672b718574b535acef6d656f24dc17a46d13a38efba1"
+        },
+        {
+          "path": "tokenizers/punkt_tab/spanish/collocations.tab",
+          "size": 74,
+          "sha256": "fa5ea7dbf61f2b1c12180d660a3012c9faaf4962eb12549d77af95e2a40be65d"
+        },
+        {
+          "path": "tokenizers/punkt_tab/spanish/ortho_context.tab",
+          "size": 337707,
+          "sha256": "1346ecfc57b26174987ffa9bd4a2558a66f46592a513da3859648790351df370"
+        },
+        {
+          "path": "tokenizers/punkt_tab/spanish/sent_starters.txt",
+          "size": 289,
+          "sha256": "4d4f7380ba16380b6158e9e8ead6973c52f27e3c9c88af63f15a41c490998319"
+        },
+        {
+          "path": "tokenizers/punkt_tab/swedish/abbrev_types.txt",
+          "size": 208,
+          "sha256": "1e1a78bd5e7fd6e7eb4b15b751a23d441cda845d5fc0b631958177b2f504da00"
+        },
+        {
+          "path": "tokenizers/punkt_tab/swedish/collocations.tab",
+          "size": 136,
+          "sha256": "bd2260433c94617ba7cf6102e4c1035099a72e5a2f6b60734639252e41633c04"
+        },
+        {
+          "path": "tokenizers/punkt_tab/swedish/ortho_context.tab",
+          "size": 616904,
+          "sha256": "d48c5705d0570993628e539ca211f05cdb5aad7adfcc6ed7b24310941bfac9f8"
+        },
+        {
+          "path": "tokenizers/punkt_tab/swedish/sent_starters.txt",
+          "size": 295,
+          "sha256": "6f0f7a6773f7488a23bafc6c29e7d4554e792d89c6b7a89fbd6a83bec85ef767"
+        },
+        {
+          "path": "tokenizers/punkt_tab/turkish/abbrev_types.txt",
+          "size": 424,
+          "sha256": "de56078c5eeb3fe07e24eab67c4aaf44e2181cbe80edd976cb1622819599d6fd"
+        },
+        {
+          "path": "tokenizers/punkt_tab/turkish/collocations.tab",
+          "size": 273,
+          "sha256": "061ce2981776a8f875da4f24bebd7e138f8da1d9057b43d07f580148ec106a33"
+        },
+        {
+          "path": "tokenizers/punkt_tab/turkish/ortho_context.tab",
+          "size": 642682,
+          "sha256": "fc214227f99d5ea3ee70d208df16b1984eab375d1946ed379061c6cf5c1718be"
+        },
+        {
+          "path": "tokenizers/punkt_tab/turkish/sent_starters.txt",
+          "size": 613,
+          "sha256": "93239fb55b5d2ae6d945a84a94e118ba8a816326b17cdc11ba8111bea0c97828"
+        },
+        {
+          "path": "tokenizers/punkt_tab.zip",
+          "size": 4319076,
+          "sha256": "e57f64187974277726a3417ca6f181ec5403676c717672eef6a748a7b20e0106"
+        }
+      ]
+    }
+  }
+}

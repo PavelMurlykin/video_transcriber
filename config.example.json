@@ -1,0 +1,15 @@
+{
+  "models_root": "%USERPROFILE%/.lmstudio/models/local-transcriber",
+  "asr": "%USERPROFILE%/.lmstudio/models/local-transcriber/whisper-large-v3",
+  "alignment": "%USERPROFILE%/.lmstudio/models/local-transcriber/wav2vec2-ru",
+  "diarization": "%USERPROFILE%/.lmstudio/models/local-transcriber/pyannote-community-1",
+  "vad": "%USERPROFILE%/.lmstudio/models/local-transcriber/vad/pytorch_model.bin",
+  "nltk_data": "%USERPROFILE%/.lmstudio/models/local-transcriber/nltk_data",
+  "manifest": "%USERPROFILE%/.lmstudio/models/local-transcriber/models-manifest.json",
+  "ffmpeg": "C:/path/to/ffmpeg.exe",
+  "ffprobe": "C:/path/to/ffprobe.exe",
+  "device": "cuda",
+  "compute_type": "float16",
+  "batch_size": 4,
+  "num_speakers": 2
+}
