@@ -6,3 +6,7 @@ class MediaError(Exception):
         self.code = code
         self.hint = hint
         self.exit_code = exit_code
+
+
+class ASROutOfMemory(RuntimeError):
+    code = "ASR_GPU_OUT_OF_MEMORY"

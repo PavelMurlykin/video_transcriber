@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 import sys
 
-from .config import ConfigurationError, load_config, load_media_config
+from .config import ConfigurationError, load_asr_config, load_config, load_media_config
 from .core.model_manager import verify_models
-from .domain.errors import MediaError
+from .core.transcription import ASROptions, LANGUAGES, PROFILES
+from .domain.errors import ASROutOfMemory, MediaError
 
 
 def main(argv=None):
@@ -16,11 +17,17 @@ def main(argv=None):
     subparsers.add_parser("verify-models", help="verify all local resources and SHA-256 hashes")
     for name, help_text in (
         ("prepare-media", "extract a 16 kHz mono PCM WAV"),
+        ("asr", "recognize speech offline and save a project JSON"),
         ("transcribe", "run offline Russian transcription and diarization"),
     ):
         run = subparsers.add_parser(name, help=help_text)
         run.add_argument("input", type=Path)
         run.add_argument("--run-dir", type=Path, required=True, help="new directory for private outputs and metrics")
+        if name != "prepare-media":
+            run.add_argument("--terms-file", type=Path, help="local UTF-8 text file, one suggested term per line")
+            run.add_argument("--profile", choices=PROFILES, default="default", help="ASR memory profile")
+        if name == "asr":
+            run.add_argument("--language", choices=LANGUAGES, default="ru")
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare-media":
@@ -32,7 +39,8 @@ def main(argv=None):
                 metadata = prepare_audio(args.input, directory / "audio.wav", config)
             print(json.dumps({"status": "completed", **metadata}))
             return 0
-        config = load_config(args.config)
+        asr_only = args.command == "asr"
+        config = load_asr_config(args.config) if asr_only else load_config(args.config)
         if args.command == "verify-models":
             errors = verify_models(config)
             print(json.dumps({"status": "failed" if errors else "completed", "errors": errors}))
@@ -43,9 +51,14 @@ def main(argv=None):
         for key in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_TOKEN"):
             os.environ.pop(key, None)
         os.environ.update(env)
+        options = ASROptions(getattr(args, "language", "ru"), args.profile, args.terms_file)
         with block_network():
-            result = run_pipeline(args.config, config, args.input, args.run_dir, event=lambda message: print(message, flush=True))
-        print(json.dumps({key: result[key] for key in ("status", "wall_seconds", "speaker_count", "segment_count")}))
+            result = run_pipeline(
+                args.config, config, args.input, args.run_dir, asr_only=asr_only, options=options,
+                event=lambda message: print(message, flush=True),
+            )
+        keys = ("status", "wall_seconds", "speaker_count", "segment_count", "recognized_language")
+        print(json.dumps({key: result[key] for key in keys}))
         return 0
     except KeyboardInterrupt:
         print('{"status":"cancelled"}', file=sys.stderr)
@@ -53,6 +66,11 @@ def main(argv=None):
     except MediaError as error:
         print(json.dumps({"status": "failed", "error_code": error.code, "hint": error.hint}), file=sys.stderr)
         return error.exit_code
+    except ASROutOfMemory as error:
+        hint = ("Retry once with --profile memory and a new --run-dir." if args.profile != "memory"
+                else "Use a new --run-dir and retry with batch_size=1 or a CPU int8 configuration.")
+        print(json.dumps({"status": "failed", "error_code": error.code, "hint": hint}), file=sys.stderr)
+        return 1
     except ConfigurationError as error:
         print(json.dumps({"status": "failed", "error_code": "INVALID_CONFIG", "hint": str(error)}), file=sys.stderr)
         return 2

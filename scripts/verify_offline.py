@@ -75,7 +75,13 @@ def main():
     parser.add_argument("--input", type=Path)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--evidence", type=Path, default=Path("artifacts/network-isolation.json"))
+    parser.add_argument("--asr-only", action="store_true")
+    parser.add_argument("--language", choices=["ru", "auto", "en"], default="ru")
+    parser.add_argument("--profile", choices=["default", "memory"], default="default")
+    parser.add_argument("--terms-file", type=Path)
     args = parser.parse_args()
+    if not args.asr_only and args.language != "ru":
+        parser.error("--language requires --asr-only")
     evidence = {"os_isolation": windows_network_isolation(), "unguarded_probes": probe_network()}
     evidence["verified"] = evidence["os_isolation"]["verified"] and all(p["blocked"] for p in evidence["unguarded_probes"])
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
@@ -87,8 +93,14 @@ def main():
         return 0
     if not args.run_dir:
         parser.error("--run-dir required with --input")
-    result = subprocess.run([sys.executable, "-m", "local_transcriber", "--config", str(args.config),
-                             "transcribe", str(args.input), "--run-dir", str(args.run_dir)])
+    command = [sys.executable, "-m", "local_transcriber", "--config", str(args.config),
+               "asr" if args.asr_only else "transcribe", str(args.input), "--run-dir", str(args.run_dir),
+               "--profile", args.profile]
+    if args.asr_only:
+        command.extend(["--language", args.language])
+    if args.terms_file is not None:
+        command.extend(["--terms-file", str(args.terms_file)])
+    result = subprocess.run(command)
     path = args.run_dir / "metrics.json"
     if path.exists():
         metrics = json.loads(path.read_text(encoding="utf-8"))

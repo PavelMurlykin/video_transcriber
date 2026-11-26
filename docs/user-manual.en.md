@@ -1,9 +1,10 @@
 # Local Transcriber — user manual
 
-The CLI prepares audio from media files and transcribes Russian speech. Full
-processing uses Large V3, Russian Wav2Vec2 and Community-1, then saves version 1
-JSON with timestamps and speakers. See the [stage 0 report](stage-0-report.md)
-and the [stage 1 report](stage-1-report.md) for validation results.
+The CLI prepares audio from media files and recognizes Russian and English
+speech. Full Russian transcription uses Large V3, Russian Wav2Vec2 and
+Community-1, then saves version 1 JSON with timestamps and speakers. See the
+[stage 0 report](stage-0-report.md), [stage 1 report](stage-1-report.md), and
+[stage 2 report](stage-2-report.md) for validation results.
 
 ## Preparation
 
@@ -48,6 +49,32 @@ the recording into parts.
 
 ## Transcribing a recording
 
+For speech recognition without alignment or diarization:
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber --config config.local.json asr 'sample\Дуэт Да.mp3' --language auto --run-dir artifacts\my-asr
+.\.venv\Scripts\python.exe scripts\check_run.py artifacts\my-asr --asr-only --expected-language ru
+```
+
+`asr` supports `--language ru` (the default), `en`, and `auto`. In `auto` mode
+WhisperX detects the language from the beginning of the recording. The
+configuration needs paths to Large V3, VAD, the manifest, FFmpeg, and ffprobe.
+`transcript.json` includes the language, text, and segment times in
+milliseconds. In this mode speaker IDs are `unknown` and the word list is empty.
+`asr.json` contains the original recognition result.
+
+The CLI saves a project checkpoint after media preparation and updates the
+JSON with text after ASR. If a later phase of full processing fails, the ASR
+result remains available.
+
+For either command, pass `--terms-file artifacts\terms.txt` with one name,
+term, or abbreviation per line in a UTF-8 file of up to 4096 bytes. Terms act
+as hints. The model may omit or misspell them. Keep the file in a local
+directory ignored by Git.
+
+Use `transcribe` for speech recognition, alignment and diarization. This
+command uses Russian.
+
 From the repository root in PowerShell:
 
 ```powershell
@@ -68,14 +95,14 @@ times and conditional speaker IDs; original `asr.json`, `alignment.json`,
 The private directories `sample/` and `artifacts/` are ignored by Git.
 Metrics and CLI messages contain technical information only.
 
-Default profile: Russian, CUDA, `float16`, `batch_size=4`, `beam_size=5`,
-`num_speakers=2`. For automatic speaker counting, set `num_speakers: null`.
-If memory is insufficient, explicitly select `batch_size: 2`, then
-`compute_type: "int8_float16"`, or `device: "cpu"` with
-`compute_type: "float32"`. The model remains Large V3. There is no automatic
-OOM retry or silent CPU fallback; any profile change needs another test.
-CPU inference can be much slower.
-Alternative CPU/int8 profiles were not separately tested in stage 0.
+The ASR defaults are CUDA, `float16`, `batch_size=4`, and `beam_size=5`. Set
+`batch_size` and `compute_type` in the configuration. The `transcribe` command
+defaults to two speakers. For automatic speaker counting, set
+`num_speakers: null`. On an ASR GPU memory error, the CLI reports
+`ASR_GPU_OUT_OF_MEMORY` and suggests a single manual retry with
+`--profile memory` and a new `--run-dir`. Memory mode limits the batch to two
+items and selects `int8_float16` on CUDA or `int8` on CPU. It retains Large V3.
+Stage 2 tested the memory profile on CUDA.
 
 Incomplete alignment, speaker boundaries and overlapping speech have
 `requires_review` and review reasons. Missing word times are `null`; an
@@ -90,6 +117,7 @@ To verify blocking at OS level:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\verify_offline.py --config config.local.json --input 'sample\Дуэт Да.mp4' --run-dir artifacts\my-offline-run
+.\.venv\Scripts\python.exe scripts\verify_offline.py --config config.local.json --asr-only --language auto --input 'sample\Дуэт Да.mp4' --run-dir artifacts\my-offline-asr
 ```
 
 The script checks a Windows AppContainer without network capabilities and

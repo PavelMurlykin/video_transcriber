@@ -8,7 +8,7 @@ from local_transcriber.workers import transcription_worker
 def test_worker_errors_never_log_exception_values(tmp_path, monkeypatch, capsys):
     secret = "synthetic-private-speech-and-token"
     monkeypatch.setattr("sys.argv", ["worker", "asr", "--config", str(tmp_path / "config.json"), "--run-dir", str(tmp_path)])
-    monkeypatch.setattr(transcription_worker, "load_config", lambda _: {})
+    monkeypatch.setattr(transcription_worker, "load_asr_config", lambda _: {})
     def fail(*args):
         print(secret)
         raise RuntimeError(secret)

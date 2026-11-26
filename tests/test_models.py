@@ -63,6 +63,15 @@ def test_hash_verification_detects_same_size_corruption(tmp_path):
     assert "CORRUPT:asr/model.bin" in verify_models(config)
 
 
+def test_asr_verifies_only_recognizer_and_vad_assets(tmp_path):
+    config = model_fixture(tmp_path)
+    settings = {key: config[key] for key in ("asr", "vad", "manifest")}
+    (Path(config["alignment"]) / "config.json").unlink()
+    assert verify_models(settings, asr_only=True) == []
+    Path(config["vad"]).unlink()
+    assert "MISSING:vad/weights" in verify_models(settings, asr_only=True)
+
+
 def test_missing_component_and_path_escape_rejected(tmp_path):
     config = model_fixture(tmp_path)
     Path(config["vad"]).unlink()

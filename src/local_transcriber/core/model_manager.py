@@ -33,9 +33,11 @@ def inventory(root: Path) -> list[dict]:
     return result
 
 
-def verify_models(config: dict, *, hashes: bool = True) -> list[str]:
+def verify_models(config: dict, *, hashes: bool = True, asr_only: bool = False) -> list[str]:
     errors = []
-    for name, spec in MODEL_SPECS.items():
+    model_names = ("asr",) if asr_only else tuple(MODEL_SPECS)
+    for name in model_names:
+        spec = MODEL_SPECS[name]
         root = Path(config[name])
         for required in spec["required"]:
             if not (root / required).is_file():
@@ -46,17 +48,19 @@ def verify_models(config: dict, *, hashes: bool = True) -> list[str]:
             errors.append("MISSING:diarization/weights")
     if not Path(config["vad"]).is_file():
         errors.append("MISSING:vad/weights")
-    for language in ("russian", "english"):
-        for filename in ("abbrev_types.txt", "collocations.tab", "ortho_context.tab", "sent_starters.txt"):
-            if not (Path(config["nltk_data"]) / "tokenizers/punkt_tab" / language / filename).is_file():
-                errors.append(f"MISSING:punkt_tab/{language}/{filename}")
+    if not asr_only:
+        for language in ("russian", "english"):
+            for filename in ("abbrev_types.txt", "collocations.tab", "ortho_context.tab", "sent_starters.txt"):
+                if not (Path(config["nltk_data"]) / "tokenizers/punkt_tab" / language / filename).is_file():
+                    errors.append(f"MISSING:punkt_tab/{language}/{filename}")
     manifest_path = Path(config["manifest"])
     if not manifest_path.is_file():
         return errors + ["MISSING:manifest"]
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         return errors + ["INVALID:manifest/schema_version"]
-    for name in (*MODEL_SPECS, "vad", "nltk_data"):
+    resources = ("asr", "vad") if asr_only else (*model_names, "vad", "nltk_data")
+    for name in resources:
         entry = manifest.get("models", {}).get(name, {})
         if not entry.get("files") or not entry.get("revision") or not entry.get("license"):
             errors.append(f"INVALID:manifest/{name}")
@@ -80,4 +84,6 @@ def verify_models(config: dict, *, hashes: bool = True) -> list[str]:
             actual = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and ".cache" not in p.relative_to(root).parts and ".git" not in p.relative_to(root).parts}
             if actual != declared:
                 errors.append(f"UNMANIFESTED:{name}")
+        if name == "vad" and Path(config["vad"]).name not in declared:
+            errors.append("UNMANIFESTED:vad/weights")
     return errors

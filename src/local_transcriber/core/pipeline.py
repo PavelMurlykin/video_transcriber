@@ -6,14 +6,16 @@ import sys
 import threading
 import time
 
-from local_transcriber.domain.entities import StageStatus, TranscriptionJob
-from local_transcriber.domain.errors import MediaError
-from local_transcriber.domain.transcript_schema import SCHEMA_VERSION, project_from_dict, project_to_dict
+from local_transcriber.config import ConfigurationError
+from local_transcriber.domain.entities import Project, Segment, Speaker, StageStatus, TranscriptionJob
+from local_transcriber.domain.errors import ASROutOfMemory, MediaError
+from local_transcriber.domain.transcript_schema import project_to_dict, segment_from_dict, write_json
 
 from .media import create_run_directory, prepare_audio
 from .model_manager import sha256, verify_models
 from .offline_guard import offline_environment
-from .speaker_merge import merge
+from .speaker_merge import interval, merge
+from .transcription import ASROptions, BEAM_SIZE
 
 
 def gpu_memory_mib():
@@ -69,17 +71,64 @@ class Sampler:
                 "gpu_measurement_scope": "whole_device_including_other_processes"}
 
 
-def run_pipeline(config_path: Path, config: dict, source: Path, directory: Path, *, event=print) -> dict:
+def _asr_segments(asr: dict, duration_ms: int) -> list[Segment]:
+    segments = []
+    for item in asr["segments"]:
+        bounds = interval(item)
+        if bounds is None or not item["text"].strip():
+            continue
+        start_ms, end_ms = (min(duration_ms, round(seconds * 1000)) for seconds in bounds)
+        if end_ms > start_ms:
+            segments.append(Segment(
+                id=f"seg_{len(segments) + 1}", start_ms=start_ms, end_ms=end_ms,
+                speaker_id="unknown", text=item["text"], requires_review=True,
+                review_reasons=["alignment_pending", "speaker_unknown"],
+            ))
+    return segments
+
+
+def _run_inference(stage: str, job: TranscriptionJob, config_path: Path, options: ASROptions) -> dict:
+    started = time.perf_counter()
+    command = [
+        sys.executable, "-m", "local_transcriber.workers.transcription_worker", stage,
+        "--config", str(config_path.resolve()), "--run-dir", str(job.run_dir),
+    ]
+    if stage == "asr":
+        command.extend(["--language", options.language, "--profile", options.profile])
+        if options.terms_file is not None:
+            command.extend(["--terms-file", str(options.terms_file)])
+    with Sampler() as sampler:
+        # Library output can contain transcript text and the glossary.
+        process = subprocess.run(
+            command, env=offline_environment(job.run_dir / "runtime-cache"),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    status_path = job.run_dir / f"{stage}-status.json"
+    status = (json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists()
+              else {"status": "failed", "error_type": "NativeWorkerExit"})
+    return {**status, "stage": stage, "exit_code": process.returncode,
+            "wall_seconds": time.perf_counter() - started, **sampler.result(),
+            "gpu_used_mib_after_worker_exit": gpu_memory_mib()}
+
+
+def run_pipeline(
+    config_path: Path, config: dict, source: Path, directory: Path, *,
+    asr_only: bool = False, options: ASROptions = ASROptions(), event=print,
+) -> dict:
     directory = create_run_directory(directory)
     job = TranscriptionJob(media_path=source, run_dir=directory)
     audio_path = job.run_dir / "audio.wav"
+    project_path = job.run_dir / "transcript.json"
+    compute_type, batch_size = options.inference_settings(config)
     metrics = {"schema_version": 1, "status": "running", "stages": [], "offline_environment": True,
                "python_network_guard": True, "os_network_block_verified": False,
                "python_version": sys.version.split()[0], "versions": {},
                "stage_statuses": job.stages,
-               "profile": {"device": config["device"], "compute_type": config["compute_type"],
-                           "batch_size": config["batch_size"], "num_speakers": config.get("num_speakers"),
-                           "beam_size": 5, "language": "ru"}}
+               "mode": "asr" if asr_only else "transcribe",
+               "profile": {"device": config["device"], "compute_type": compute_type,
+                           "batch_size": batch_size, "num_speakers": config.get("num_speakers") if not asr_only else None,
+                           "beam_size": BEAM_SIZE, "language": options.language, "asr_profile": options.profile,
+                           "terms_file_supplied": options.terms_file is not None}}
     for name in ("torch", "torchaudio", "torchvision", "whisperx", "ctranslate2", "faster-whisper", "pyannote.audio", "transformers"):
         try:
             metrics["versions"][name] = importlib.metadata.version(name)
@@ -89,7 +138,7 @@ def run_pipeline(config_path: Path, config: dict, source: Path, directory: Path,
         (directory / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     started = time.perf_counter()
     try:
-        errors = verify_models(config)
+        errors = verify_models(config, asr_only=asr_only)
         if errors:
             metrics["verification_errors"] = errors
             raise ValueError("MODEL_VERIFICATION_FAILED")
@@ -99,51 +148,39 @@ def run_pipeline(config_path: Path, config: dict, source: Path, directory: Path,
             metadata = prepare_audio(job.media_path, audio_path, config)
             metrics.update(metadata)
             metrics["prepared_audio_sha256"] = sha256(audio_path)
+            project = Project(
+                project_id=job.project_id, media_path=str(job.media_path.resolve()), language=options.language,
+                duration_ms=metadata["duration_ms"], sample_rate=metadata["sample_rate"], channels=metadata["channels"],
+                speakers=[], segments=[], completed_stages=["audio"],
+                models_manifest_sha256=sha256(Path(config["manifest"])),
+            )
+            write_json(project_path, project_to_dict(project))
         metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start, "status": job.stages["audio"]})
-        for stage in ("asr", "alignment", "diarization"):
+        save()
+        inference_stages = ("asr",) if asr_only else ("asr", "alignment", "diarization")
+        for stage in inference_stages:
             event(json.dumps({"stage": stage, "status": "started"}))
-            stage_start = time.perf_counter()
             with job.stage(stage):
-                with Sampler() as sampler:
-                    # Library output can contain transcript text.
-                    process = subprocess.run(
-                        [sys.executable, "-m", "local_transcriber.workers.transcription_worker", stage,
-                         "--config", str(config_path.resolve()), "--run-dir", str(directory)],
-                        env=offline_environment(directory / "runtime-cache"),
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    )
-                status_path = directory / f"{stage}-status.json"
-                status = (json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists()
-                          else {"status": "failed", "error_type": "NativeWorkerExit"})
-                measurement = {**status, "stage": stage, "exit_code": process.returncode,
-                               "wall_seconds": time.perf_counter() - stage_start, **sampler.result(),
-                               "gpu_used_mib_after_worker_exit": gpu_memory_mib()}
+                measurement = _run_inference(stage, job, config_path, options)
                 metrics["stages"].append(measurement)
-                if process.returncode != 0 or status["status"] != StageStatus.COMPLETED:
+                if measurement["exit_code"] != 0 or measurement["status"] != StageStatus.COMPLETED:
+                    if measurement.get("error_code") == ASROutOfMemory.code:
+                        raise ASROutOfMemory
+                    if measurement.get("error_code") == "INVALID_CONFIG":
+                        raise ConfigurationError("Check the local ASR settings and the UTF-8 terms file (at most 4096 bytes).")
                     raise RuntimeError("INFERENCE_STAGE_FAILED")
+                if stage == "asr":
+                    asr = json.loads((directory / "asr.json").read_text(encoding="utf-8"))
+                    project.original_asr = asr
+                    project.language = asr["language"]
+                    project.segments = _asr_segments(asr, project.duration_ms)
+                    project.completed_stages = [*job.completed_stages, "asr"]
+                    write_json(project_path, project_to_dict(project))
+                    metrics["recognized_language"] = project.language
             save()
-            event(json.dumps({"stage": stage, "status": status["status"], "wall_seconds": measurement["wall_seconds"]}))
-        event(json.dumps({"stage": "merge", "status": "started"}))
-        merge_start = time.perf_counter()
-        with job.stage("merge"):
-            asr, aligned, turns = [json.loads((directory / f"{stage}.json").read_text(encoding="utf-8"))
-                                   for stage in ("asr", "alignment", "diarization")]
-            merged = merge(asr, aligned, turns, metadata["duration_ms"])
-            if not merged["segments"]:
-                raise ValueError("NO_SPEECH_SEGMENTS")
-            project = project_from_dict({
-                "schema_version": SCHEMA_VERSION, "project_id": job.project_id, "media_path": str(job.media_path.resolve()),
-                "language": "ru", **{key: metadata[key] for key in ("duration_ms", "sample_rate", "channels")},
-                **merged, "original_asr": asr, "original_alignment": aligned,
-                "completed_stages": [*job.completed_stages, "merge"],
-                "models_manifest_sha256": sha256(Path(config["manifest"])),
-            })
-            payload = json.dumps(project_to_dict(project), ensure_ascii=False, indent=2, allow_nan=False)
-            temporary_json = directory / "transcript.json.tmp"
-            temporary_json.write_text(payload, encoding="utf-8")
-            temporary_json.replace(directory / "transcript.json")
-        metrics["stages"].append({"stage": "merge", "status": "completed", "wall_seconds": time.perf_counter() - merge_start,
-                                  "gpu_used_mib_after_worker_exit": gpu_memory_mib()})
+            event(json.dumps({"stage": stage, "status": measurement["status"], "wall_seconds": measurement["wall_seconds"]}))
+        if not asr_only:
+            _merge_project(project, project_path, job, metrics, event)
         audio_path.unlink()
         metrics.update(status="completed", speaker_count=len(project.speakers), segment_count=len(project.segments),
                        segments_requiring_review=sum(s.requires_review for s in project.segments))
@@ -153,6 +190,9 @@ def run_pipeline(config_path: Path, config: dict, source: Path, directory: Path,
     except MediaError as error:
         metrics.update(status="failed", error_type=type(error).__name__, error_code=error.code)
         raise
+    except ASROutOfMemory as error:
+        metrics.update(status="failed", error_type=type(error).__name__, error_code=error.code)
+        raise
     except Exception as error:
         metrics.update(status="failed", error_type=type(error).__name__)
         raise
@@ -160,3 +200,22 @@ def run_pipeline(config_path: Path, config: dict, source: Path, directory: Path,
         metrics["wall_seconds"] = time.perf_counter() - started
         save()
     return metrics
+
+
+def _merge_project(project: Project, project_path: Path, job: TranscriptionJob, metrics: dict, event) -> None:
+    event(json.dumps({"stage": "merge", "status": "started"}))
+    started = time.perf_counter()
+    with job.stage("merge"):
+        aligned, turns = (json.loads((job.run_dir / f"{stage}.json").read_text(encoding="utf-8"))
+                          for stage in ("alignment", "diarization"))
+        merged = merge(project.original_asr, aligned, turns, project.duration_ms)
+        if not merged["segments"]:
+            raise ValueError("NO_SPEECH_SEGMENTS")
+        project.speakers = [Speaker(**item) for item in merged["speakers"]]
+        project.segments = [segment_from_dict(item) for item in merged["segments"]]
+        project.diarization_turns = merged["diarization_turns"]
+        project.original_alignment = aligned
+        project.completed_stages = [*job.completed_stages, "merge"]
+        write_json(project_path, project_to_dict(project))
+    metrics["stages"].append({"stage": "merge", "status": "completed", "wall_seconds": time.perf_counter() - started,
+                              "gpu_used_mib_after_worker_exit": gpu_memory_mib()})

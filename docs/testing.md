@@ -38,6 +38,14 @@ tests:
 The [stage 1 report](stage-1-report.md) includes the measurements and the
 regression run through the complete pipeline.
 
+Stage 2 tests check offline model selection, language forwarding, local glossary
+validation, project checkpoints and the one-time suggestion for CUDA memory
+errors. The acceptance run uses a Russian recording lasting 15–30 minutes and
+checks the JSON under OS network isolation. Use `verify_offline.py --asr-only`
+and then `check_run.py --asr-only --expected-language ru`. A run in `auto` mode
+reports the detected language. The [stage 2 report](stage-2-report.md) includes
+the exact inputs and measurements.
+
 Real acceptance additionally requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
 text, no runtime token, and a repeat under OS network isolation. A successful
