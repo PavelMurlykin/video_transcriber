@@ -43,3 +43,14 @@ def test_incomplete_word_list_does_not_lose_source_text():
 def test_nan_word_times_are_marked_missing():
     source = {"segments": [{"start": 0, "end": 2, "text": "Раз", "words": [{"word": "Раз", "start": float("nan"), "end": 1}]}]}
     assert merge(source, source, [], 2000)["segments"][0]["words"][0]["alignment_missing"]
+
+
+def test_millisecond_rounding_does_not_publish_zero_duration_words():
+    source = {"segments": [{"start": 0, "end": 2, "text": "Раз", "words": [
+        {"word": "Раз", "start": 0.5001, "end": 0.5002}
+    ]}]}
+    segment = merge(source, source, [], 2000)["segments"][0]
+    assert (segment["start_ms"], segment["end_ms"]) == (0, 2000)
+    assert segment["requires_review"]
+    word = segment["words"][0]
+    assert word["start_ms"] is None and word["end_ms"] is None and word["alignment_missing"]

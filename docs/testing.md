@@ -46,11 +46,15 @@ and then `check_run.py --asr-only --expected-language ru`. A run in `auto` mode
 reports the detected language. The [stage 2 report](stage-2-report.md) includes
 the exact inputs and measurements.
 
-Real acceptance additionally requires all three model phases to complete on the
+Stage 3 tests cover partial word alignment, unsupported digits and characters,
+Cyrillic abbreviations, ambiguous repeats, digital silence, and times invalid
+after millisecond rounding. The acceptance runs exercise a supplied recording
+through the full pipeline and a synthetic sample through the alignment worker.
+See the [stage 3 report](stage-3-report.md) for measurements and results.
+
+Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
-text, no runtime token, and a repeat under OS network isolation. A successful
-unit test run does not establish these criteria. Do not advance to stage 1 or UI
-without a separate user instruction.
+text, and a run under OS network isolation with local resources.
 
 `verify_offline.py` returns 3 if it cannot prove OS isolation. In the Codex
 restricted Windows execution environment, AppContainer capability inspection

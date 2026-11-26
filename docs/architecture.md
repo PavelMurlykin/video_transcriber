@@ -2,7 +2,7 @@
 
 The technical specification is `Local_Transcriber_Codex_Development_Plan.md` v1.0.
 Stage 0 proved the offline flow. Stage 1 adds a domain model and media preparation.
-Stage 2 adds a standalone ASR command.
+Stage 2 adds a standalone ASR command. Stage 3 validates word alignment.
 
 The CLI converts a local media file to a separate 16 kHz mono PCM WAV with
 FFmpeg, then runs three short-lived Python worker processes **sequentially**:
@@ -36,10 +36,17 @@ attempt to create Torch directories elsewhere in the user profile.
 `verify_offline.py` independently checks Windows AppContainer network capabilities
 and unguarded network probes; environment flags alone do not count as OS isolation.
 
-WhisperX interpolation is disabled (`interpolate_method="ignore"`). Missing word
-times remain null. If upstream alignment drops text, the original segment is
-retained and flagged for review. Speaker assignment uses interval intersections;
-equal assignments use `unknown`, overlaps remain in the raw turns, and speaker
+The alignment worker only loads the local Russian Wav2Vec2 model, its processor
+and the local Russian sentence tokenizer. WhisperX runs with interpolation
+disabled (`interpolate_method="ignore"`). The adapter reconciles its output with
+the original words in order and accepts time ranges within the ASR segment and
+audio. Ranges must remain ordered and positive after rounding to milliseconds.
+Words that depend on wildcard characters, annotation text, ambiguous repetitions
+and words over digital silence can have two null times. With incomplete alignment,
+the original segment text and bounds are kept, along with the valid word times.
+Complete alignment can use the sentence boundaries from WhisperX. The merge
+assigns speakers based on interval intersections. Equal assignments use
+`unknown`, overlaps remain in the raw turns, and speaker
 changes split fully aligned segments. These are prototype reconciliation rules,
 not a measured guarantee of diarization quality. Laughter is not explicitly
 classified and can require manual review.

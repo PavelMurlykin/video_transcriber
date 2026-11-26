@@ -3,8 +3,9 @@
 The CLI prepares audio from media files and recognizes Russian and English
 speech. Full Russian transcription uses Large V3, Russian Wav2Vec2 and
 Community-1, then saves version 1 JSON with timestamps and speakers. See the
-[stage 0 report](stage-0-report.md), [stage 1 report](stage-1-report.md), and
-[stage 2 report](stage-2-report.md) for validation results.
+[stage 0 report](stage-0-report.md), [stage 1 report](stage-1-report.md),
+[stage 2 report](stage-2-report.md), and [stage 3 report](stage-3-report.md)
+for validation results.
 
 ## Preparation
 
@@ -104,11 +105,17 @@ defaults to two speakers. For automatic speaker counting, set
 items and selects `int8_float16` on CUDA or `int8` on CPU. It retains Large V3.
 Stage 2 tested the memory profile on CUDA.
 
-Incomplete alignment, speaker boundaries and overlapping speech have
-`requires_review` and review reasons. Missing word times are `null`; an
-uncertain speaker is `unknown`. Laughter is not classified as a separate event
-and can affect recognition or speaker assignment. Real names are not inferred.
-WER/CER/DER are not measured without a manually annotated reference.
+Russian Wav2Vec2 places word timestamps within the phrase. Tokens with digits
+or letters outside the model vocabulary, text annotations such as
+`[неразборчиво]`, and words without a valid time range have `null` in
+`start_ms` and `end_ms`. These words have
+`alignment_missing` set. The segment retains its original text and interval,
+along with word times that could be aligned. The `requires_review` flag and
+`alignment_incomplete` reason identify incomplete alignment.
+
+Speaker boundaries and overlapping speech can also require review. An uncertain
+speaker is marked `unknown`. Laughter can affect text and speaker assignment.
+Measuring WER/CER/DER requires a manually annotated reference.
 
 ## Testing without internet
 

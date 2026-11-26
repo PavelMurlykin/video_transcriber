@@ -38,6 +38,8 @@ def check(directory: Path, expected_speakers: int | None = None, *,
                 missing_words += 1
                 if word["start_ms"] is not None or word["end_ms"] is not None:
                     errors.append("FABRICATED_WORD_TIMES")
+                if not segment["requires_review"] or "alignment_incomplete" not in segment["review_reasons"]:
+                    errors.append("ALIGNMENT_REVIEW_FLAG_MISSING")
             else:
                 timed_words += 1
                 if not segment["start_ms"] <= word["start_ms"] < word["end_ms"] <= segment["end_ms"]:

@@ -43,20 +43,27 @@ def merge(asr: dict, aligned: dict, turns: list[dict], duration_ms: int) -> dict
         bounds = interval(source)
         if not bounds:
             raise ValueError("INVALID_SEGMENT_TIMESTAMPS")
+        segment_start_ms = round(bounds[0] * 1000)
+        segment_end_ms = min(duration_ms, round(bounds[1] * 1000))
+        if segment_start_ms >= segment_end_ms:
+            continue
         words = []
         for word in source.get("words", []):
             bounds_word = interval(word)
-            valid = bounds_word and bounds[0] <= bounds_word[0] < bounds_word[1] <= min(bounds[1], duration_ms / 1000)
+            word_start_ms, word_end_ms = (round(value * 1000) for value in bounds_word) if bounds_word else (None, None)
+            valid = (not word.get("alignment_missing") and bounds_word
+                     and bounds[0] <= bounds_word[0] < bounds_word[1] <= bounds[1]
+                     and segment_start_ms <= word_start_ms < word_end_ms <= segment_end_ms)
             speaker, flags = assign(*bounds_word, turns, mapping) if valid else ("unknown", ["alignment_missing", "speaker_unknown"])
-            words.append({"text": word.get("word", ""), "start_ms": round(bounds_word[0] * 1000) if valid else None,
-                          "end_ms": round(bounds_word[1] * 1000) if valid else None,
+            words.append({"text": word.get("word", ""), "start_ms": word_start_ms if valid else None,
+                          "end_ms": word_end_ms if valid else None,
                           "speaker_id": speaker, "alignment_missing": not bool(valid), "review_reasons": flags})
         # Preserve the entire source text if tokenization/alignment omitted any words.
         normalized = lambda text: " ".join(text.split())
         complete_text = normalized(" ".join(w["text"] for w in words)) == normalized(source["text"])
-        if not words or not complete_text or any(w["alignment_missing"] for w in words):
+        if source.get("alignment_incomplete") or not words or not complete_text or any(w["alignment_missing"] for w in words):
             speaker, flags = assign(*bounds, turns, mapping)
-            groups = [(source["text"], round(bounds[0] * 1000), round(bounds[1] * 1000), speaker, words,
+            groups = [(source["text"], segment_start_ms, segment_end_ms, speaker, words,
                        sorted(set(flags + ["alignment_incomplete"] + [r for w in words for r in w["review_reasons"]])))]
         else:
             groups = []
