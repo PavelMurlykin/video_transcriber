@@ -1,8 +1,8 @@
 # Project instructions
 
 - The primary specification is `Local_Transcriber_Codex_Development_Plan.md`.
-- Work on only the explicitly requested stage. Current scope: stage 0 only.
-  Do not start UI, document export, packaging or later stages automatically.
+- Work on one authorized stage per run. The development schedule, when active,
+  starts the next stage after the preceding stage passes its criteria and is pushed.
 - Keep the specified ASR → forced alignment → diarization → JSON architecture.
   Document technical reasons for any necessary adjustment.
 - Load models only from configured absolute local paths. Runtime must never
@@ -15,5 +15,5 @@
   test fixtures or logs. Keep private runs in ignored `artifacts/`.
 - After changes, run appropriate tests. Report only checks actually executed.
   Record real errors, timings, memory measurements and acceptance blockers.
-- Keep Russian and English user manuals equivalent and current. Provide a
-  ready-to-copy Russian commit subject; do not commit unless requested.
+- Keep Russian and English user manuals equivalent and current. Give a Russian
+  commit subject in the report. Commit and push each accepted stage as requested.

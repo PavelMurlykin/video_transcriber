@@ -1,4 +1,4 @@
-# Stage 0 verification
+# Verification
 
 Run from the repository root with the prepared `.venv`:
 
@@ -25,6 +25,18 @@ The test command disables pytest's PDB plugin in the noninteractive Windows
 console: its transitive `pyreadline3` dependency otherwise emits an ignored
 invalid-console-handle exception during shutdown. This changes debugger
 integration only; assertions and test execution remain enabled.
+
+Stage 1 adds automated tests for a synthetic hour-long MKV, WAV with IMA ADPCM,
+low disk space, stopping a running FFmpeg subprocess, cleanup of partial output,
+and round-tripping the original version 1 project schema. To run the focused
+tests:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -p no:debugging tests/test_media.py tests/test_transcript_schema.py
+```
+
+The [stage 1 report](stage-1-report.md) includes the measurements and the
+regression run through the complete pipeline.
 
 Real acceptance additionally requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian

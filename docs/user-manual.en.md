@@ -1,12 +1,9 @@
 # Local Transcriber — user manual
 
-The current application is a stage-0 CLI prototype for Russian speech. It runs
-Large V3 ASR, Russian Wav2Vec2 word alignment and Community-1 diarization
-sequentially, then saves JSON. There is no GUI, editor, document export,
-project database or installer yet. See `docs/stage-0-report.md` for actual
-validation status; implemented code alone does not establish stage acceptance.
-The full offline pipeline has been tested on the supplied short MP3 and MP4
-recordings with two speakers. Recognition and speaker assignment can still fail.
+The CLI prepares audio from media files and transcribes Russian speech. Full
+processing uses Large V3, Russian Wav2Vec2 and Community-1, then saves version 1
+JSON with timestamps and speakers. See the [stage 0 report](stage-0-report.md)
+and the [stage 1 report](stage-1-report.md) for validation results.
 
 ## Preparation
 
@@ -30,7 +27,26 @@ To download Community-1 initially, accept its Hugging Face conditions and run
 used temporarily and the script does not save it. Inference needs no token.
 Never send tokens in chat or place them in `.env`.
 
-## Processing a recording
+## Preparing audio only
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber --config .tools/ffmpeg-install.json prepare-media 'sample\Дуэт Да.mp4' --run-dir artifacts\my-audio
+```
+
+This command needs FFmpeg/ffprobe and a configuration file with their absolute
+paths. It extracts the first audio stream to `audio.wav` in a new directory and
+reports duration, source codec and channel count. The output is 16-bit PCM,
+16 kHz, mono. The disk check estimates the output size from the duration, with
+a 16 MiB reserve. Use a new directory on a local drive for each run.
+
+Ctrl+C during media preparation stops FFmpeg/ffprobe and removes the partial
+WAV. If a command fails, check `error_code` and `hint` in the terminal.
+`NO_AUDIO_STREAM` means the file has no audio track, `INVALID_MEDIA` means the
+container could not be read, and `INSUFFICIENT_DISK_SPACE` means the drive has
+too little space. For a WAV above the format's approximately 4 GiB limit, split
+the recording into parts.
+
+## Transcribing a recording
 
 From the repository root in PowerShell:
 
@@ -41,16 +57,16 @@ From the repository root in PowerShell:
 .\.venv\Scripts\python.exe scripts\check_run.py artifacts\my-run --expected-speakers 2
 ```
 
-For MP4, change the input path. FFmpeg creates a separate 16 kHz mono PCM WAV;
-the original remains unchanged. Each run requires a new, nonexistent
-`--run-dir`. Intermediate data remains after failures. Choose another directory
-name to retry. This prototype does not resume interrupted runs.
+For MP4, change the input path. Use a new `--run-dir` for each run. The working
+WAV is removed after successful transcript saving. After a model failure, a
+fully extracted WAV and other intermediate data remain for diagnosis. A retry
+processes the recording from the start.
 
 The result directory contains `transcript.json` with text, words, millisecond
 times and conditional speaker IDs; original `asr.json`, `alignment.json`,
-`diarization.json`; the prepared `audio.wav`; and technical `metrics.json`.
-These files can contain confidential data. Both `sample/` and `artifacts/`
-are ignored by Git. Metrics and CLI messages contain no speech or tokens.
+`diarization.json`; and technical `metrics.json` with phase statuses.
+The private directories `sample/` and `artifacts/` are ignored by Git.
+Metrics and CLI messages contain technical information only.
 
 Default profile: Russian, CUDA, `float16`, `batch_size=4`, `beam_size=5`,
 `num_speakers=2`. For automatic speaker counting, set `num_speakers: null`.
@@ -84,9 +100,8 @@ version recognizes AppContainer only; disabled adapters or an external firewall
 need separate verification. Offline flags alone do not establish successful
 OS-level isolation.
 
-CLI exit codes: `0` success, `1` processing failure, `2` configuration,
-verification or input error, `130` Ctrl+C interruption. Fully managed
-cancellation and recovery belong to later stages. `verify_offline.py` returns
+`0` means success, `1` a processing failure, `2` a configuration, verification
+or input error, and `130` a Ctrl+C interruption. `verify_offline.py` returns
 `3` without proven isolation, otherwise the CLI code. `check_run.py` returns
 `0` for successful structural validation or `1` for validation errors.
 

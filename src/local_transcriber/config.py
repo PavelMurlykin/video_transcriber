@@ -7,20 +7,30 @@ class ConfigurationError(ValueError):
     pass
 
 
-PATH_FIELDS = ("models_root", "asr", "alignment", "diarization", "vad", "nltk_data", "manifest", "ffmpeg", "ffprobe")
+MEDIA_PATH_FIELDS = ("ffmpeg", "ffprobe")
+PATH_FIELDS = ("models_root", "asr", "alignment", "diarization", "vad", "nltk_data", "manifest", *MEDIA_PATH_FIELDS)
 
 
-def load_config(path: Path) -> dict:
+def _load_paths(path: Path, keys: tuple[str, ...]) -> dict:
     config = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(config, dict):
         raise ConfigurationError("configuration must be a JSON object")
-    for key in PATH_FIELDS:
+    for key in keys:
         if not isinstance(config.get(key), str):
             raise ConfigurationError(f"{key}: absolute local path required")
         value = Path(os.path.expandvars(config.get(key, ""))).expanduser()
         if not value.is_absolute() or str(value).startswith(("\\\\", "//")):
             raise ConfigurationError(f"{key}: absolute local path required")
         config[key] = str(value.resolve())
+    return config
+
+
+def load_media_config(path: Path) -> dict:
+    return _load_paths(path, MEDIA_PATH_FIELDS)
+
+
+def load_config(path: Path) -> dict:
+    config = _load_paths(path, PATH_FIELDS)
     for key, default in (("device", "cuda"), ("compute_type", "float16"), ("batch_size", 4), ("num_speakers", 2)):
         config.setdefault(key, default)
     if config.get("device", "cuda") not in ("cuda", "cpu"):

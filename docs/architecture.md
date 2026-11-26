@@ -1,8 +1,7 @@
-# Architecture — stage 0
+# Architecture
 
 The technical specification is `Local_Transcriber_Codex_Development_Plan.md` v1.0.
-Only its stage 0 is implemented. There is no GUI, editor, project database,
-document export, queue or installer.
+Stage 0 proved the offline flow. Stage 1 adds a domain model and media preparation.
 
 The CLI converts a local media file to a separate 16 kHz mono PCM WAV with
 FFmpeg, then runs three short-lived Python worker processes **sequentially**:
@@ -38,8 +37,17 @@ changes split fully aligned segments. These are prototype reconciliation rules,
 not a measured guarantee of diarization quality. Laughter is not explicitly
 classified and can require manual review.
 
-Each run uses a new private output directory containing prepared audio, original
-ASR/alignment, diarization, a merged transcript and separate technical metrics.
+Each run uses a new private output directory. FFprobe checks the first audio
+stream and supplies a duration estimate for the disk-space check. FFmpeg writes
+inside a temporary subdirectory on the same drive. The CLI validates the resulting
+PCM WAV and moves it into place. Cancellation stops the media subprocess and
+removes partial audio. The standalone `prepare-media` command keeps the WAV it
+produces. Full transcription removes the working WAV after saving its transcript.
+
+The version 1 project JSON has typed `Project`, `Speaker`, `Segment` and `Word`
+representations. It preserves original ASR and alignment output alongside the
+editable segments. A `TranscriptionJob` records phase statuses for diagnostics,
+and completed phases appear in the transcript. Technical metrics are separate.
 Third-party stdout/stderr is captured and discarded; structured errors contain
 exception classes and stack locations, never exception messages or speech.
 Sampling reports process-tree RSS and **whole-device** VRAM (including other
