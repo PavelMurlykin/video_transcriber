@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from local_transcriber.config import ConfigurationError
+from local_transcriber.config import ConfigurationError, speaker_count_options
 from local_transcriber.domain.entities import Project, Segment, Speaker, StageStatus, TranscriptionJob
 from local_transcriber.domain.errors import ASROutOfMemory, MediaError
 from local_transcriber.domain.transcript_schema import project_to_dict, segment_from_dict, write_json
@@ -120,13 +120,15 @@ def run_pipeline(
     audio_path = job.run_dir / "audio.wav"
     project_path = job.run_dir / "transcript.json"
     compute_type, batch_size = options.inference_settings(config)
+    speaker_options = speaker_count_options(config) if not asr_only else {}
     metrics = {"schema_version": 1, "status": "running", "stages": [], "offline_environment": True,
                "python_network_guard": True, "os_network_block_verified": False,
                "python_version": sys.version.split()[0], "versions": {},
                "stage_statuses": job.stages,
                "mode": "asr" if asr_only else "transcribe",
                "profile": {"device": config["device"], "compute_type": compute_type,
-                           "batch_size": batch_size, "num_speakers": config.get("num_speakers") if not asr_only else None,
+                           "batch_size": batch_size, "num_speakers": speaker_options.get("num_speakers"),
+                           **{key: speaker_options[key] for key in ("min_speakers", "max_speakers") if key in speaker_options},
                            "beam_size": BEAM_SIZE, "language": options.language, "asr_profile": options.profile,
                            "terms_file_supplied": options.terms_file is not None}}
     for name in ("torch", "torchaudio", "torchvision", "whisperx", "ctranslate2", "faster-whisper", "pyannote.audio", "transformers"):
@@ -206,14 +208,17 @@ def _merge_project(project: Project, project_path: Path, job: TranscriptionJob, 
     event(json.dumps({"stage": "merge", "status": "started"}))
     started = time.perf_counter()
     with job.stage("merge"):
-        aligned, turns = (json.loads((job.run_dir / f"{stage}.json").read_text(encoding="utf-8"))
-                          for stage in ("alignment", "diarization"))
-        merged = merge(project.original_asr, aligned, turns, project.duration_ms)
+        aligned, diarization = (json.loads((job.run_dir / f"{stage}.json").read_text(encoding="utf-8"))
+                                for stage in ("alignment", "diarization"))
+        merged = merge(project.original_asr, aligned, diarization["turns"], project.duration_ms,
+                       exclusive_turns=diarization["exclusive_turns"])
         if not merged["segments"]:
             raise ValueError("NO_SPEECH_SEGMENTS")
         project.speakers = [Speaker(**item) for item in merged["speakers"]]
         project.segments = [segment_from_dict(item) for item in merged["segments"]]
         project.diarization_turns = merged["diarization_turns"]
+        project.exclusive_diarization_turns = merged["exclusive_diarization_turns"]
+        project.overlap_regions = merged["overlap_regions"]
         project.original_alignment = aligned
         project.completed_stages = [*job.completed_stages, "merge"]
         write_json(project_path, project_to_dict(project))

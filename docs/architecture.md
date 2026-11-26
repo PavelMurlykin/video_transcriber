@@ -3,6 +3,7 @@
 The technical specification is `Local_Transcriber_Codex_Development_Plan.md` v1.0.
 Stage 0 proved the offline flow. Stage 1 adds a domain model and media preparation.
 Stage 2 adds a standalone ASR command. Stage 3 validates word alignment.
+Stage 4 adds speaker count modes and overlap-aware speaker assignment.
 
 The CLI converts a local media file to a separate 16 kHz mono PCM WAV with
 FFmpeg, then runs three short-lived Python worker processes **sequentially**:
@@ -44,12 +45,23 @@ audio. Ranges must remain ordered and positive after rounding to milliseconds.
 Words that depend on wildcard characters, annotation text, ambiguous repetitions
 and words over digital silence can have two null times. With incomplete alignment,
 the original segment text and bounds are kept, along with the valid word times.
-Complete alignment can use the sentence boundaries from WhisperX. The merge
-assigns speakers based on interval intersections. Equal assignments use
-`unknown`, overlaps remain in the raw turns, and speaker
-changes split fully aligned segments. These are prototype reconciliation rules,
-not a measured guarantee of diarization quality. Laughter is not explicitly
-classified and can require manual review.
+Complete alignment can use the sentence boundaries from WhisperX.
+
+The local Community-1 worker runs with an automatic, exact or ranged speaker
+count and returns the raw and exclusive timelines. The merge derives the
+project's simultaneous-speech regions from the raw timeline. It assigns IDs
+by first appearance and intersects each timed word with the speech intervals.
+A raw candidate needs over half the word and a lead of at least one tenth of
+its duration. The exclusive timeline can settle an uncertain boundary when
+its candidate has majority raw coverage and at least one tenth of the word
+with that speaker alone in the raw timeline. A conflict between otherwise
+supported candidates yields `unknown`. These thresholds are merge rules.
+
+Speaker changes split display segments. If a phrase has missing word times
+and two supported speakers, timed groups keep their own labels and untimed
+words keep `unknown` and null times. The display interval for an untimed
+group uses adjacent timed boundaries where available, with the phrase bounds
+as a fallback. The original alignment remains in the project's model results.
 
 Each run uses a new private output directory. FFprobe checks the first audio
 stream and supplies a duration estimate for the disk-space check. FFmpeg writes

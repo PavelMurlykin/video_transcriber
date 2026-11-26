@@ -4,7 +4,8 @@ The CLI prepares audio from media files and recognizes Russian and English
 speech. Full Russian transcription uses Large V3, Russian Wav2Vec2 and
 Community-1, then saves version 1 JSON with timestamps and speakers. See the
 [stage 0 report](stage-0-report.md), [stage 1 report](stage-1-report.md),
-[stage 2 report](stage-2-report.md), and [stage 3 report](stage-3-report.md)
+[stage 2 report](stage-2-report.md), [stage 3 report](stage-3-report.md),
+and [stage 4 report](stage-4-report.md)
 for validation results.
 
 ## Preparation
@@ -97,9 +98,7 @@ The private directories `sample/` and `artifacts/` are ignored by Git.
 Metrics and CLI messages contain technical information only.
 
 The ASR defaults are CUDA, `float16`, `batch_size=4`, and `beam_size=5`. Set
-`batch_size` and `compute_type` in the configuration. The `transcribe` command
-defaults to two speakers. For automatic speaker counting, set
-`num_speakers: null`. On an ASR GPU memory error, the CLI reports
+`batch_size` and `compute_type` in the configuration. On an ASR GPU memory error, the CLI reports
 `ASR_GPU_OUT_OF_MEMORY` and suggests a single manual retry with
 `--profile memory` and a new `--run-dir`. Memory mode limits the batch to two
 items and selects `int8_float16` on CUDA or `int8` on CPU. It retains Large V3.
@@ -109,13 +108,33 @@ Russian Wav2Vec2 places word timestamps within the phrase. Tokens with digits
 or letters outside the model vocabulary, text annotations such as
 `[неразборчиво]`, and words without a valid time range have `null` in
 `start_ms` and `end_ms`. These words have
-`alignment_missing` set. The segment retains its original text and interval,
-along with word times that could be aligned. The `requires_review` flag and
+`alignment_missing` set. The original text, interval and usable word times
+remain in `original_alignment`. The `requires_review` flag and
 `alignment_incomplete` reason identify incomplete alignment.
 
-Speaker boundaries and overlapping speech can also require review. An uncertain
-speaker is marked `unknown`. Laughter can affect text and speaker assignment.
-Measuring WER/CER/DER requires a manually annotated reference.
+## Speakers and overlapping speech
+
+Set the speaker count for `transcribe` in the local JSON configuration.
+
+- Exact count. Set `"num_speakers": 2`, the default.
+- Automatic count. Set `"num_speakers": null`. Community-1 estimates the count.
+- Range. Set `"min_speakers": 2, "max_speakers": 3`. Keep
+  `"num_speakers": null` or remove that field. The bounds must be positive
+  integers and can be equal.
+
+Speaker 1, Speaker 2 and subsequent numbers follow their first appearance.
+The code matches speakers to word intervals and splits a phrase at speaker
+changes. An ambiguous word gets `unknown` and a review flag. A word with
+missing times stays `unknown` even in a split phrase.
+
+In `transcript.json`, `diarization_turns` contains the original speech turns
+with possible overlaps, and `exclusive_diarization_turns` contains the track
+with one voice at a time. Both tracks use seconds. `overlap_regions` gives
+the boundaries in milliseconds and IDs of speakers detected simultaneously.
+The exclusive track may contain fewer speakers than the original track.
+The `diarization.json` file saves both tracks as `turns` and `exclusive_turns`.
+Laughter can affect speaker assignment. Measuring WER/CER/DER requires a
+manually annotated reference.
 
 ## Testing without internet
 

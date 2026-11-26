@@ -48,6 +48,8 @@ class Project:
     original_asr: dict | None = None
     original_alignment: dict | None = None
     models_manifest_sha256: str | None = None
+    exclusive_diarization_turns: list[dict] | None = None
+    overlap_regions: list[dict] | None = None
 
 
 class StageStatus(StrEnum):

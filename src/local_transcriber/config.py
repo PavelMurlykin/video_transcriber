@@ -50,9 +50,22 @@ def load_asr_config(path: Path) -> dict:
     return _load_inference_config(path, ASR_PATH_FIELDS)
 
 
-def load_config(path: Path) -> dict:
-    config = _load_inference_config(path, PATH_FIELDS)
-    count = config.setdefault("num_speakers", 2)
+def speaker_count_options(config: dict) -> dict[str, int]:
+    low, high = config.get("min_speakers"), config.get("max_speakers")
+    ranged = low is not None or high is not None
+    count = config.get("num_speakers", None if ranged else 2)
     if count is not None and (type(count) is not int or count < 1):
         raise ConfigurationError("num_speakers must be null or a positive integer")
+    if ranged:
+        if count is not None:
+            raise ConfigurationError("set num_speakers to null or omit it when using a speaker range")
+        if type(low) is not int or type(high) is not int or not 1 <= low <= high:
+            raise ConfigurationError("speaker range requires positive integers min_speakers <= max_speakers")
+        return {"min_speakers": low, "max_speakers": high}
+    return {"num_speakers": count} if count is not None else {}
+
+
+def load_config(path: Path) -> dict:
+    config = _load_inference_config(path, PATH_FIELDS)
+    config["num_speakers"] = speaker_count_options(config).get("num_speakers")
     return config

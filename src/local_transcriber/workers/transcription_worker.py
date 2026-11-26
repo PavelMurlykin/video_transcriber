@@ -9,7 +9,7 @@ from pathlib import Path
 import traceback
 import warnings
 
-from local_transcriber.config import ConfigurationError, load_asr_config, load_config
+from local_transcriber.config import ConfigurationError, load_asr_config, load_config, speaker_count_options
 from local_transcriber.core.offline_guard import block_network, offline_environment
 from local_transcriber.core.transcription import ASREngine, ASROptions, LANGUAGES, PROFILES, read_terms
 from local_transcriber.domain.errors import ASROutOfMemory
@@ -41,8 +41,9 @@ def execute(stage: str, config: dict, directory: Path, options: ASROptions):
         from local_transcriber.core.alignment import align
         result = align(config, audio, json.loads((directory / "asr.json").read_text(encoding="utf-8")))
     else:
-        from local_transcriber.core.diarization import diarize
-        result = diarize(config, audio)
+        from local_transcriber.core.diarization import DiarizationEngine
+        engine = DiarizationEngine(Path(config["diarization"]), config["device"])
+        result = engine.diarize(audio, speaker_count_options(config))
     write_json(directory / f"{stage}.json", result)
     del audio, result
     gc.collect()
