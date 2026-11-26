@@ -1,6 +1,7 @@
 import importlib.metadata
 import json
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -10,6 +11,7 @@ from local_transcriber.config import ConfigurationError, speaker_count_options
 from local_transcriber.domain.entities import Project, Segment, Speaker, StageStatus, TranscriptionJob
 from local_transcriber.domain.errors import ASROutOfMemory, MediaError
 from local_transcriber.domain.transcript_schema import project_to_dict, segment_from_dict, write_json
+from local_transcriber.storage.projects import DATABASE_FILENAME, ProjectStore, ProjectStoreError
 
 from .media import create_run_directory, prepare_audio
 from .model_manager import sha256, verify_models
@@ -113,7 +115,7 @@ def _run_inference(stage: str, job: TranscriptionJob, config_path: Path, options
 
 def run_pipeline(
     config_path: Path, config: dict, source: Path, directory: Path, *,
-    asr_only: bool = False, options: ASROptions = ASROptions(), event=print,
+    asr_only: bool = False, options: ASROptions = ASROptions(), project_db: Path | None = None, event=print,
 ) -> dict:
     directory = create_run_directory(directory)
     job = TranscriptionJob(media_path=source, run_dir=directory)
@@ -122,6 +124,7 @@ def run_pipeline(
     compute_type, batch_size = options.inference_settings(config)
     speaker_options = speaker_count_options(config) if not asr_only else {}
     metrics = {"schema_version": 1, "status": "running", "stages": [], "offline_environment": True,
+               "project_id": job.project_id, "project_checkpoints": [],
                "python_network_guard": True, "os_network_block_verified": False,
                "python_version": sys.version.split()[0], "versions": {},
                "stage_statuses": job.stages,
@@ -138,12 +141,29 @@ def run_pipeline(
             metrics["versions"][name] = None
     def save():
         (directory / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+
+    revision = None
+
+    def checkpoint(status: str = "incomplete"):
+        nonlocal revision
+        checkpoint_start = time.perf_counter()
+        if revision is None:
+            revision = store.create(project, status=status)
+        else:
+            revision = store.save(project, status=status, revision=revision)
+        write_json(project_path, project_to_dict(project))
+        metrics["project_checkpoints"].append({
+            "stage": project.completed_stages[-1], "revision": revision,
+            "wall_seconds": time.perf_counter() - checkpoint_start,
+        })
+
     started = time.perf_counter()
     try:
         errors = verify_models(config, asr_only=asr_only)
         if errors:
             metrics["verification_errors"] = errors
             raise ValueError("MODEL_VERIFICATION_FAILED")
+        store = ProjectStore(project_db or directory.parent / DATABASE_FILENAME)
         event(json.dumps({"stage": "audio", "status": "started"}))
         audio_start = time.perf_counter()
         with job.stage("audio"):
@@ -156,7 +176,7 @@ def run_pipeline(
                 speakers=[], segments=[], completed_stages=["audio"],
                 models_manifest_sha256=sha256(Path(config["manifest"])),
             )
-            write_json(project_path, project_to_dict(project))
+            checkpoint()
         metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start, "status": job.stages["audio"]})
         save()
         inference_stages = ("asr",) if asr_only else ("asr", "alignment", "diarization")
@@ -176,40 +196,45 @@ def run_pipeline(
                     project.original_asr = asr
                     project.language = asr["language"]
                     project.segments = _asr_segments(asr, project.duration_ms)
-                    project.completed_stages = [*job.completed_stages, "asr"]
-                    write_json(project_path, project_to_dict(project))
                     metrics["recognized_language"] = project.language
+                elif stage == "alignment":
+                    project.original_alignment = json.loads((directory / "alignment.json").read_text(encoding="utf-8"))
+                else:
+                    project.original_diarization = json.loads((directory / "diarization.json").read_text(encoding="utf-8"))
+                project.completed_stages = [*job.completed_stages, stage]
+                checkpoint("completed" if asr_only else "incomplete")
             save()
             event(json.dumps({"stage": stage, "status": measurement["status"], "wall_seconds": measurement["wall_seconds"]}))
         if not asr_only:
-            _merge_project(project, project_path, job, metrics, event)
+            _merge_project(project, job, checkpoint, metrics, event)
         audio_path.unlink()
         metrics.update(status="completed", speaker_count=len(project.speakers), segment_count=len(project.segments),
                        segments_requiring_review=sum(s.requires_review for s in project.segments))
     except KeyboardInterrupt:
         metrics["status"] = "cancelled"
         raise
-    except MediaError as error:
-        metrics.update(status="failed", error_type=type(error).__name__, error_code=error.code)
-        raise
-    except ASROutOfMemory as error:
+    except (MediaError, ASROutOfMemory, ProjectStoreError) as error:
         metrics.update(status="failed", error_type=type(error).__name__, error_code=error.code)
         raise
     except Exception as error:
         metrics.update(status="failed", error_type=type(error).__name__)
         raise
     finally:
+        if revision is not None and metrics["status"] in ("failed", "cancelled"):
+            try:
+                store.set_status(job.project_id, status=metrics["status"], revision=revision)
+            except (ProjectStoreError, sqlite3.Error, OSError) as error:
+                metrics["project_status_error"] = type(error).__name__
         metrics["wall_seconds"] = time.perf_counter() - started
         save()
     return metrics
 
 
-def _merge_project(project: Project, project_path: Path, job: TranscriptionJob, metrics: dict, event) -> None:
+def _merge_project(project: Project, job: TranscriptionJob, checkpoint, metrics: dict, event) -> None:
     event(json.dumps({"stage": "merge", "status": "started"}))
     started = time.perf_counter()
     with job.stage("merge"):
-        aligned, diarization = (json.loads((job.run_dir / f"{stage}.json").read_text(encoding="utf-8"))
-                                for stage in ("alignment", "diarization"))
+        aligned, diarization = project.original_alignment, project.original_diarization
         merged = merge(project.original_asr, aligned, diarization["turns"], project.duration_ms,
                        exclusive_turns=diarization["exclusive_turns"])
         if not merged["segments"]:
@@ -219,8 +244,7 @@ def _merge_project(project: Project, project_path: Path, job: TranscriptionJob, 
         project.diarization_turns = merged["diarization_turns"]
         project.exclusive_diarization_turns = merged["exclusive_diarization_turns"]
         project.overlap_regions = merged["overlap_regions"]
-        project.original_alignment = aligned
         project.completed_stages = [*job.completed_stages, "merge"]
-        write_json(project_path, project_to_dict(project))
+        checkpoint("completed")
     metrics["stages"].append({"stage": "merge", "status": "completed", "wall_seconds": time.perf_counter() - started,
                               "gpu_used_mib_after_worker_exit": gpu_memory_mib()})

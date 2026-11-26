@@ -58,6 +58,11 @@ times. For a recording with predicted overlap, use `check_run.py --expect-overla
 to check the version 1 JSON, including interval bounds and exclusive tracks.
 See the [stage 4 report](stage-4-report.md) for the real offline runs.
 
+Stage 5 tests verify project reopen, legacy JSON import, undo/redo,
+save-conflict detection and recovery after an abrupt exit during a SQLite
+write. The acceptance run uses separate CLI processes for editing and reopening
+with OS network isolation. See the [stage 5 report](stage-5-report.md).
+
 Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
 text, and a run under OS network isolation with local resources.

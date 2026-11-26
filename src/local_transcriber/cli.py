@@ -8,12 +8,16 @@ from .config import ConfigurationError, load_asr_config, load_config, load_media
 from .core.model_manager import verify_models
 from .core.transcription import ASROptions, LANGUAGES, PROFILES
 from .domain.errors import ASROutOfMemory, MediaError
+from .storage.commands import add_project_commands, run_project_command
+from .storage.projects import ProjectStoreError
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Local Transcriber - offline media preparation and transcription")
     parser.add_argument("--config", type=Path, default=Path("config.local.json"))
+    parser.add_argument("--project-db", type=Path, help="path to the local SQLite project database")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    add_project_commands(subparsers)
     subparsers.add_parser("verify-models", help="verify all local resources and SHA-256 hashes")
     for name, help_text in (
         ("prepare-media", "extract a 16 kHz mono PCM WAV"),
@@ -30,6 +34,8 @@ def main(argv=None):
             run.add_argument("--language", choices=LANGUAGES, default="ru")
     args = parser.parse_args(argv)
     try:
+        if args.command == "projects":
+            return run_project_command(args)
         if args.command == "prepare-media":
             from .core.media import create_run_directory, prepare_audio
             from .core.offline_guard import block_network
@@ -55,9 +61,10 @@ def main(argv=None):
         with block_network():
             result = run_pipeline(
                 args.config, config, args.input, args.run_dir, asr_only=asr_only, options=options,
+                project_db=args.project_db,
                 event=lambda message: print(message, flush=True),
             )
-        keys = ("status", "wall_seconds", "speaker_count", "segment_count", "recognized_language")
+        keys = ("status", "project_id", "wall_seconds", "speaker_count", "segment_count", "recognized_language")
         print(json.dumps({key: result[key] for key in keys}))
         return 0
     except KeyboardInterrupt:
@@ -74,9 +81,13 @@ def main(argv=None):
     except ConfigurationError as error:
         print(json.dumps({"status": "failed", "error_code": "INVALID_CONFIG", "hint": str(error)}), file=sys.stderr)
         return 2
+    except ProjectStoreError as error:
+        print(json.dumps({"status": "failed", "error_code": error.code}), file=sys.stderr)
+        return 2
     except Exception as error:
-        hint = ("Check --config and the output directory." if args.command == "prepare-media"
-                else "Check config, verify-models and run-dir/metrics.json.")
+        hints = {"prepare-media": "Check --config and the output directory.",
+                 "projects": "Check the project database, JSON format and local file paths."}
+        hint = hints.get(args.command, "Check config, verify-models and run-dir/metrics.json.")
         print(json.dumps({"status": "failed", "error_type": type(error).__name__,
                           "hint": hint}), file=sys.stderr)
         return 2 if isinstance(error, (ValueError, FileNotFoundError, FileExistsError)) else 1

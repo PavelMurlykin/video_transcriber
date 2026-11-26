@@ -213,6 +213,8 @@ sample/
 models/
 .tools/
 artifacts/
+projects.sqlite3
+projects.sqlite3-*
 config.local.json
 *.local.json
 

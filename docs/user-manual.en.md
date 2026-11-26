@@ -5,7 +5,7 @@ speech. Full Russian transcription uses Large V3, Russian Wav2Vec2 and
 Community-1, then saves version 1 JSON with timestamps and speakers. See the
 [stage 0 report](stage-0-report.md), [stage 1 report](stage-1-report.md),
 [stage 2 report](stage-2-report.md), [stage 3 report](stage-3-report.md),
-and [stage 4 report](stage-4-report.md)
+[stage 4 report](stage-4-report.md), and [stage 5 report](stage-5-report.md)
 for validation results.
 
 ## Preparation
@@ -135,6 +135,46 @@ The exclusive track may contain fewer speakers than the original track.
 The `diarization.json` file saves both tracks as `turns` and `exclusive_turns`.
 Laughter can affect speaker assignment. Measuring WER/CER/DER requires a
 manually annotated reference.
+
+## Saved projects
+
+`asr` and `transcribe` automatically write the project to `projects.sqlite3`
+beside the `--run-dir` directory. For a run in `artifacts\my-run`, the
+database is `artifacts\projects.sqlite3`. Each completed phase is saved.
+Projects marked `incomplete` contain the last saved phase, including after
+an abrupt exit.
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber projects list
+.\.venv\Scripts\python.exe -m local_transcriber projects open PROJECT_ID --output artifacts\reopened.json
+.\.venv\Scripts\python.exe -m local_transcriber projects import artifacts\old-run\transcript.json
+```
+
+Use an ID from the list. Opening reads SQLite and creates a new JSON file.
+Import accepts version 1 JSON with an ID new to that database. For a different
+database, use `--project-db PATH` before `asr`, `transcribe`, or `projects`.
+Keep the database and JSON copies in a local directory ignored by Git.
+
+For edits, save one JSON object per line in a UTF-8 command file:
+
+```jsonl
+{"op":"rename_speaker","speaker_id":"spk_0","display_name":"Host"}
+{"op":"set_segment_speaker","segment_id":"seg_1","speaker_id":"unknown"}
+{"op":"undo"}
+{"op":"redo"}
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber projects edit PROJECT_ID --commands artifacts\edits.jsonl
+```
+
+The `set_segment_text` command takes `segment_id` and `text`. It retains the
+segment interval and clears its stale word times. The original model results
+remain in the project. Omit `--commands` to read commands from standard input.
+Every edit saves immediately, including undo and redo. Undo and redo stacks
+are available in the current session. Reopening restores the last saved
+version. The `projects` commands work without model configuration or
+inference.
 
 ## Testing without internet
 

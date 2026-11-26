@@ -4,6 +4,7 @@ The technical specification is `Local_Transcriber_Codex_Development_Plan.md` v1.
 Stage 0 proved the offline flow. Stage 1 adds a domain model and media preparation.
 Stage 2 adds a standalone ASR command. Stage 3 validates word alignment.
 Stage 4 adds speaker count modes and overlap-aware speaker assignment.
+Stage 5 adds transactional local project storage.
 
 The CLI converts a local media file to a separate 16 kHz mono PCM WAV with
 FFmpeg, then runs three short-lived Python worker processes **sequentially**:
@@ -83,6 +84,21 @@ exception classes and stack locations, never exception messages or speech.
 Sampling reports process-tree RSS and **whole-device** VRAM (including other
 applications), not a claimed exact model-only memory peak. Torch allocator peaks
 do not include CTranslate2 allocations. Sampling can miss short peaks.
+
+SQLite stores the catalog, status, revision and version 1 JSON snapshot in a
+single row per project. The transaction keeps the status and snapshot consistent
+across a crash without coordinating writes to separate files. The normal
+`transcript.json` remains a compatible copy for pipeline runs. SQLite stores
+the source path without copying audio. A database application ID and
+`user_version` identify the database and its schema.
+
+The pipeline commits a snapshot after media preparation, ASR, alignment,
+diarization and merge. Completed ASR-only runs commit after ASR. A failed or
+cancelled run retains the last committed stage. A hard termination leaves the
+last stage and status `incomplete`. The catalog and original model results are
+available without launching models. Edits, undo and redo each commit to the
+same database. The undo/redo stacks keep the changed entities in memory for
+the current editor session. Revision checks reject stale saves.
 
 Preparation scripts alone may access the internet. Community-1 terms must be
 accepted by the user. The token is supplied using masked input in a separate

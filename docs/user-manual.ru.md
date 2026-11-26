@@ -5,7 +5,8 @@ CLI подготавливает аудио из медиафайлов и ра�
 Community-1, затем сохраняет JSON версии 1 с временными метками и спикерами.
 Результаты проверок описаны в [отчёте этапа 0](stage-0-report.md),
 [отчёте этапа 1](stage-1-report.md), [отчёте этапа 2](stage-2-report.md) и
-[отчёте этапа 3](stage-3-report.md) и [отчёте этапа 4](stage-4-report.md).
+[отчёте этапа 3](stage-3-report.md), [отчёте этапа 4](stage-4-report.md) и
+[отчёте этапа 5](stage-5-report.md).
 
 ## Подготовка
 
@@ -134,6 +135,47 @@ Git. В метриках и сообщениях CLI есть только те�
 спикеров, чем исходная. В `diarization.json` обе дорожки сохранены в полях
 `turns` и `exclusive_turns`. Смех может влиять на назначение говорящего.
 Оценка WER/CER/DER требует ручного эталона.
+
+## Сохранённые проекты
+
+`asr` и `transcribe` автоматически записывают проект в `projects.sqlite3`
+рядом с каталогом `--run-dir`. Для обычного каталога `artifacts\my-run`
+это `artifacts\projects.sqlite3`. Сохранение происходит после каждой
+завершённой фазы. Запись с пометкой `incomplete` содержит последнюю
+сохранённую фазу, в том числе после аварийного выхода.
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber projects list
+.\.venv\Scripts\python.exe -m local_transcriber projects open PROJECT_ID --output artifacts\reopened.json
+.\.venv\Scripts\python.exe -m local_transcriber projects import artifacts\old-run\transcript.json
+```
+
+Подставьте ID из списка. Для открытия используется SQLite и создаётся новый
+JSON-файл. Импорт принимает JSON версии 1 с новым для этой базы ID. Если
+используете другую базу, передайте `--project-db ПУТЬ` перед командой
+`asr`, `transcribe` или `projects`. Держите базу и копии JSON в локальном
+каталоге, исключённом из Git.
+
+Для правок сохраните команды в файле UTF-8 по одному JSON-объекту на строку:
+
+```jsonl
+{"op":"rename_speaker","speaker_id":"spk_0","display_name":"Ведущая"}
+{"op":"set_segment_speaker","segment_id":"seg_1","speaker_id":"unknown"}
+{"op":"undo"}
+{"op":"redo"}
+```
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber projects edit PROJECT_ID --commands artifacts\edits.jsonl
+```
+
+Команда `set_segment_text` принимает `segment_id` и `text`. Она сохраняет
+интервал сегмента и убирает его устаревшие метки слов. Исходные результаты
+моделей остаются в проекте. Без `--commands` команды читаются из стандартного
+ввода. Каждая правка сохраняется сразу, включая undo и redo. Стеки отмены и
+повтора доступны в текущей сессии. При открытии доступны правки из последней
+сохранённой версии. Команды `projects` работают без конфигурации моделей и
+запуска распознавания.
 
 ## Проверка без интернета
 
