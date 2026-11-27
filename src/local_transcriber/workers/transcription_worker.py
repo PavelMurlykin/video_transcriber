@@ -10,7 +10,7 @@ import traceback
 import warnings
 
 from local_transcriber.config import ConfigurationError, load_asr_config, load_config, speaker_count_options
-from local_transcriber.core.offline_guard import block_network, offline_environment
+from local_transcriber.core.offline_guard import offline_runtime
 from local_transcriber.core.transcription import ASREngine, ASROptions, LANGUAGES, PROFILES, read_terms
 from local_transcriber.domain.errors import ASROutOfMemory
 from local_transcriber.domain.transcript_schema import write_json
@@ -61,16 +61,14 @@ def main():
     parser.add_argument("--profile", choices=PROFILES, default="default")
     parser.add_argument("--terms-file", type=Path)
     args = parser.parse_args()
-    env = offline_environment()
-    os.environ.clear()
-    os.environ.update(env)
     logging.disable(logging.CRITICAL)
     warnings.filterwarnings("ignore")
     status = {"stage": args.stage, "status": "failed"}
     try:
-        config = load_asr_config(args.config) if args.stage == "asr" else load_config(args.config)
-        options = ASROptions(args.language, args.profile, args.terms_file)
-        with block_network(), open(os.devnull, "w") as quiet, redirect_stdout(quiet), redirect_stderr(quiet):
+        with offline_runtime(args.run_dir / "runtime-cache"), open(os.devnull, "w") as quiet, \
+                redirect_stdout(quiet), redirect_stderr(quiet):
+            config = load_asr_config(args.config) if args.stage == "asr" else load_config(args.config)
+            options = ASROptions(args.language, args.profile, args.terms_file)
             status.update(execute(args.stage, config, args.run_dir, options))
         status["status"] = "completed"
     except Exception as error:
@@ -82,7 +80,7 @@ def main():
             status["error_code"] = error.code
         elif isinstance(error, ConfigurationError):
             status["error_code"] = "INVALID_CONFIG"
-    (args.run_dir / f"{args.stage}-status.json").write_text(json.dumps(status, indent=2), encoding="utf-8")
+    write_json(args.run_dir / f"{args.stage}-status.json", status)
     return 0 if status["status"] == "completed" else 1
 
 

@@ -67,7 +67,8 @@ Stage 6 tests exercise Qt import and media inspection, saved settings, editor
 controls, and restoring edits after reopening. With the Qt dependencies, run
 the standard suite and opt in to the real Windows AppContainer acceptance test.
 Use a new ignored artifacts directory for each run. The sample directory must
-contain a local MP4 and the matching MP3.
+contain a local MP4 and the matching MP3. The current acceptance test also
+requires the export dependencies from stage 7.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q -p no:debugging -m 'not integration'
@@ -87,6 +88,13 @@ Install the locked export dependencies before running the standard suite.
 The acceptance run compares the three outputs from one edited project under
 AppContainer and checks page layout on synthetic transcripts. See the
 [stage 7 report](stage-7-report.md).
+
+Stage 8 extends the Windows AppContainer acceptance test to verify startup
+checks, mixed Latin and Cyrillic paths, no administrator privileges, worker
+failure, and restoring the last saved project. It exports TXT, DOCX and PDF
+after the successful retry and checks that the run log includes neither the
+source file name nor the synthetic transcript and token markers. See the
+[stage 8 report](stage-8-report.md).
 
 Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian

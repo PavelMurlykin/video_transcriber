@@ -1,6 +1,6 @@
 # Local Transcriber
 
-Windows offline transcription prototype. Stages **0–7** of
+Windows offline transcription prototype. Stages **0–8** of
 [the primary specification](Local_Transcriber_Codex_Development_Plan.md).
 
 Pipeline: local media → 16 kHz mono WAV → Whisper Large V3 / WhisperX → Russian
@@ -19,6 +19,7 @@ processing, edits saved transcripts and exports them to TXT, DOCX and PDF.
 - [Stage 5 project storage and recovery](docs/stage-5-report.md)
 - [Stage 6 desktop client](docs/stage-6-report.md)
 - [Stage 7 transcript export](docs/stage-7-report.md)
+- [Stage 8 offline runtime and recovery](docs/stage-8-report.md)
 
 Python 3.11–3.13; vendor-compatible CUDA 12.8 / Torch 2.8 stack. The agreed local
 model store is `%USERPROFILE%\.lmstudio\models\local-transcriber`; LM Studio
@@ -26,7 +27,7 @@ is not used as a service. Prepare dependencies/models online, then run locally:
 
 ```powershell
 .\.venv\Scripts\python.exe -m local_transcriber --config .tools/ffmpeg-install.json prepare-media 'sample\Дуэт Да.mp4' --run-dir artifacts\audio-example
-.\.venv\Scripts\python.exe -m local_transcriber --config config.local.json verify-models
+.\.venv\Scripts\python.exe -m local_transcriber --config config.local.json check-runtime
 .\.venv\Scripts\python.exe -m local_transcriber --config config.local.json asr 'sample\Дуэт Да.mp3' --language auto --run-dir artifacts\asr-example
 .\.venv\Scripts\python.exe -m local_transcriber --config config.local.json transcribe 'sample\Дуэт Да.mp3' --run-dir artifacts\example
 .\.venv\Scripts\python.exe -m local_transcriber projects list

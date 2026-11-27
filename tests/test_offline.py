@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from local_transcriber.core.offline_guard import NetworkDisabledError, block_network, offline_environment
+from local_transcriber.core.offline_guard import NetworkDisabledError, block_network, offline_environment, offline_runtime
 
 
 def test_runtime_clears_tokens_and_disables_telemetry():
@@ -17,6 +17,10 @@ def test_runtime_clears_tokens_and_disables_telemetry():
 
 @pytest.mark.parametrize("operation", [
     lambda: socket.getaddrinfo("example.invalid", 443),
+    lambda: socket.gethostbyname("example.invalid"),
+    lambda: socket.gethostbyname_ex("example.invalid"),
+    lambda: socket.gethostbyaddr("127.0.0.1"),
+    lambda: socket.getnameinfo(("127.0.0.1", 443), 0),
     lambda: socket.create_connection(("127.0.0.1", 80)),
     lambda: socket.socket().connect(("127.0.0.1", 80)),
     lambda: socket.socket().connect_ex(("127.0.0.1", 80)),
@@ -32,6 +36,16 @@ def test_guard_restores_socket_api():
     with block_network():
         assert socket.socket.connect is not original
     assert socket.socket.connect is original
+
+
+def test_runtime_scope_prevents_using_environment_tokens(monkeypatch):
+    for name in ("HF_TOKEN", "HF_TOKEN_PATH"):
+        monkeypatch.setenv(name, "synthetic-secret")
+    with offline_runtime():
+        assert "HF_TOKEN" not in os.environ and "HF_TOKEN_PATH" not in os.environ
+        assert os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] == "1"
+        assert os.environ["HF_HUB_DISABLE_TELEMETRY"] == "1"
+    assert os.environ["HF_TOKEN"] == "synthetic-secret"
 
 
 def test_worker_cache_paths_are_isolated_from_user_cache(tmp_path):

@@ -45,8 +45,9 @@ def test_engine_passes_range_to_local_pipeline_and_reads_both_tracks(tmp_path, m
 
     class Pipeline:
         @classmethod
-        def from_pretrained(cls, path):
+        def from_pretrained(cls, path, *, token):
             calls["path"] = path
+            assert token is False
             return cls()
 
         def to(self, device):

@@ -10,13 +10,14 @@ import time
 
 from local_transcriber.config import ConfigurationError, speaker_count_options
 from local_transcriber.domain.entities import Project, Segment, Speaker, StageStatus, TranscriptionJob
-from local_transcriber.domain.errors import ASROutOfMemory, MediaError
+from local_transcriber.domain.errors import ASROutOfMemory, MediaError, PipelineError
 from local_transcriber.domain.transcript_schema import project_to_dict, segment_from_dict, write_json
 from local_transcriber.storage.projects import DATABASE_FILENAME, ProjectStore, ProjectStoreError
 
 from .media import create_run_directory, prepare_audio
-from .model_manager import sha256, verify_models
+from .model_manager import sha256
 from .offline_guard import offline_environment
+from .runtime import check_runtime
 from .speaker_merge import interval, merge
 from .transcription import ASROptions, BEAM_SIZE
 
@@ -120,8 +121,12 @@ def _run_inference(stage: str, job: TranscriptionJob, config_path: Path, options
                     process.kill()
                 raise
     status_path = job.run_dir / f"{stage}-status.json"
-    status = (json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists()
-              else {"status": "failed", "error_type": "NativeWorkerExit"})
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        status = None
+    if not isinstance(status, dict):
+        status = {"status": "failed", "error_type": "NativeWorkerExit"}
     return {**status, "stage": stage, "exit_code": exit_code,
             "wall_seconds": time.perf_counter() - started, **sampler.result(),
             "gpu_used_mib_after_worker_exit": gpu_memory_mib()}
@@ -175,10 +180,12 @@ def run_pipeline(
     started = time.perf_counter()
     try:
         job.check_cancelled()
-        errors = verify_models(config, asr_only=asr_only)
+        preflight = time.perf_counter()
+        errors = check_runtime(config, directory, asr_only=asr_only, compute_type=compute_type, cancel=job)
+        metrics["preflight_seconds"] = time.perf_counter() - preflight
         if errors:
             metrics["verification_errors"] = errors
-            raise ValueError("MODEL_VERIFICATION_FAILED")
+            raise PipelineError("RUNTIME_CHECK_FAILED", "Check the listed local dependencies and output drive.", errors=errors)
         job.check_cancelled()
         store = ProjectStore(project_db or directory.parent / DATABASE_FILENAME)
         event(json.dumps({"stage": "audio", "status": "started"}))
@@ -210,7 +217,8 @@ def run_pipeline(
                         raise ASROutOfMemory
                     if measurement.get("error_code") == "INVALID_CONFIG":
                         raise ConfigurationError("Check the local ASR settings and the UTF-8 terms file (at most 4096 bytes).")
-                    raise RuntimeError("INFERENCE_STAGE_FAILED")
+                    raise PipelineError("INFERENCE_STAGE_FAILED",
+                                        "Start a new run. The last saved project remains available.")
                 if stage == "asr":
                     asr = json.loads((directory / "asr.json").read_text(encoding="utf-8"))
                     project.original_asr = asr
@@ -234,7 +242,7 @@ def run_pipeline(
     except KeyboardInterrupt:
         metrics["status"] = "cancelled"
         raise
-    except (MediaError, ASROutOfMemory, ProjectStoreError) as error:
+    except (MediaError, ASROutOfMemory, ProjectStoreError, PipelineError) as error:
         metrics.update(status="failed", error_type=type(error).__name__, error_code=error.code)
         raise
     except Exception as error:
@@ -259,7 +267,7 @@ def _merge_project(project: Project, job: TranscriptionJob, checkpoint, metrics:
         merged = merge(project.original_asr, aligned, diarization["turns"], project.duration_ms,
                        exclusive_turns=diarization["exclusive_turns"])
         if not merged["segments"]:
-            raise ValueError("NO_SPEECH_SEGMENTS")
+            raise PipelineError("NO_SPEECH_SEGMENTS", "No speech segments could be recovered from this recording.")
         project.speakers = [Speaker(**item) for item in merged["speakers"]]
         project.segments = [segment_from_dict(item) for item in merged["segments"]]
         project.diarization_turns = merged["diarization_turns"]

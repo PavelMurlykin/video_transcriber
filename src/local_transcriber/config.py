@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 
+from .domain.paths import NonLocalPath, resolve_local
+
 
 class ConfigurationError(ValueError):
     pass
@@ -13,19 +15,24 @@ PATH_FIELDS = ("models_root", "asr", "alignment", "diarization", "vad", "nltk_da
 
 
 def _load_paths(path: Path, keys: tuple[str, ...]) -> dict:
-    config = json.loads(path.read_text(encoding="utf-8-sig"))
+    try:
+        config = json.loads(resolve_local(path).read_text(encoding="utf-8-sig"))
+    except NonLocalPath:
+        raise ConfigurationError("configuration file must be on a local drive") from None
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise ConfigurationError("configuration file must be readable UTF-8 JSON") from None
     if not isinstance(config, dict):
         raise ConfigurationError("configuration must be a JSON object")
     for key in keys:
         if not isinstance(config.get(key), str):
             raise ConfigurationError(f"{key}: absolute local path required")
         value = Path(os.path.expandvars(config.get(key, ""))).expanduser()
-        if not value.is_absolute() or str(value).startswith(("\\\\", "//")):
+        if not value.is_absolute():
             raise ConfigurationError(f"{key}: absolute local path required")
-        resolved = value.resolve()
-        if str(resolved).startswith(("\\\\", "//")):
-            raise ConfigurationError(f"{key}: absolute local path required")
-        config[key] = str(resolved)
+        try:
+            config[key] = str(resolve_local(value))
+        except (NonLocalPath, OSError, RuntimeError):
+            raise ConfigurationError(f"{key}: absolute local path required") from None
     return config
 
 

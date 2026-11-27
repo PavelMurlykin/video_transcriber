@@ -23,6 +23,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     configure_media_environment()
     try:
+        from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
         from .window import MainWindow
     except ModuleNotFoundError as error:
@@ -43,6 +44,7 @@ def main(argv=None):
     app = QApplication([sys.argv[0]])
     window = MainWindow(settings)
     window.show()
+    QTimer.singleShot(0, window.check_startup)
     return app.exec()
 
 

@@ -2,6 +2,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from local_transcriber.domain.paths import NonLocalPath, resolve_local
+
 
 MODEL_SPECS = {
     "asr": {"source": "Systran/faster-whisper-large-v3", "license": "MIT", "revision": "edaa852ec7e145841d8ffdb056a99866b5f0a478",
@@ -71,8 +73,15 @@ def verify_models(config: dict, *, hashes: bool = True, asr_only: bool = False) 
         declared = set()
         for file in entry["files"]:
             relative = Path(file["path"])
-            target = (root / relative).resolve()
-            if relative.is_absolute() or not target.is_relative_to(root.resolve()):
+            if relative.anchor or ".." in relative.parts:
+                errors.append(f"UNSAFE:manifest/{name}")
+                continue
+            try:
+                target = resolve_local(root / relative)
+            except NonLocalPath:
+                errors.append(f"UNSAFE:manifest/{name}")
+                continue
+            if not target.is_relative_to(root):
                 errors.append(f"UNSAFE:manifest/{name}")
                 continue
             declared.add(relative.as_posix())

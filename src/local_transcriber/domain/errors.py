@@ -17,3 +17,11 @@ class ExportError(ValueError):
         super().__init__(hint)
         self.code = code
         self.hint = hint
+
+
+class PipelineError(RuntimeError):
+    def __init__(self, code: str, hint: str, *, errors: list[str] | None = None):
+        super().__init__(hint)
+        self.code = code
+        self.hint = hint
+        self.errors = errors or []

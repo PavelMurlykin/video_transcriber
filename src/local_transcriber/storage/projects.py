@@ -8,6 +8,7 @@ from pathlib import Path
 import sqlite3
 
 from local_transcriber.domain.entities import Project
+from local_transcriber.domain.paths import NonLocalPath, resolve_local
 from local_transcriber.domain.transcript_schema import project_from_dict, project_to_dict
 
 DATABASE_FILENAME = "projects.sqlite3"
@@ -22,12 +23,10 @@ class ProjectStoreError(RuntimeError):
 
 
 def local_path(path: Path) -> Path:
-    if str(path).startswith(("\\\\", "//")):
-        raise ProjectStoreError("PROJECT_PATH_NOT_LOCAL")
-    result = path.resolve()
-    if str(result).startswith(("\\\\", "//")):
-        raise ProjectStoreError("PROJECT_PATH_NOT_LOCAL")
-    return result
+    try:
+        return resolve_local(path)
+    except NonLocalPath:
+        raise ProjectStoreError("PROJECT_PATH_NOT_LOCAL") from None
 
 
 @dataclass(frozen=True)

@@ -84,6 +84,9 @@ class MainWindow(QMainWindow):
         self.import_status = QLabel()
         self.import_status.setWordWrap(True)
         self.import_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.runtime_status = QLabel()
+        self.runtime_status.setWordWrap(True)
+        self.runtime_status.setTextFormat(Qt.TextFormat.PlainText)
 
         import_group = QGroupBox(t("Новая запись", "New recording"))
         form = QFormLayout(import_group)
@@ -94,6 +97,7 @@ class MainWindow(QMainWindow):
         form.addRow(t("Профиль распознавания", "Recognition profile"), self.profile)
         form.addRow(self.start)
         form.addRow(self.import_status)
+        form.addRow(self.runtime_status)
 
         self.projects = QListWidget()
         self.projects.setAccessibleName(t("Проекты", "Projects"))
@@ -185,7 +189,7 @@ class MainWindow(QMainWindow):
         form.addRow(t("Язык интерфейса (после перезапуска)", "Interface language (after restart)"), self.ui_language)
         self.save_settings = QPushButton(t("Сохранить", "Save"))
         self.save_settings.clicked.connect(self._save_preferences)
-        self.verify = QPushButton(t("Проверить локальные файлы", "Verify local files"))
+        self.verify = QPushButton(t("Проверить локальную среду", "Check local runtime"))
         self.verify.clicked.connect(self._verify)
         form.addRow(self.save_settings, self.verify)
         self.settings_status = QLabel(t("Ресурсы ещё не проверены", "Resources have not been checked"))
@@ -205,7 +209,8 @@ class MainWindow(QMainWindow):
         self.cancel.setEnabled(self.task == "run" and not self.cancel_pending)
         self.retry.setEnabled(idle and self.last_request is not None and self.finished_project_id is None)
         self.open_result.setEnabled(idle and self.finished_project_id is not None)
-        self.open_selected.setEnabled(idle and self.projects.currentItem() is not None)
+        self.open_selected.setEnabled(not self.close_pending and self.task in (None, "startup")
+                                      and self.projects.currentItem() is not None)
         self.save_settings.setEnabled(idle)
         self.verify.setEnabled(idle)
         self.editor.export_button.setEnabled(idle and self.editor.session is not None)
@@ -271,7 +276,7 @@ class MainWindow(QMainWindow):
         for stage in names:
             self.stages.addItem(self.stage_names[stage])
             self._stage_state(stage, self.t("ожидание", "waiting"))
-        self.job_state.setText(self.t("Проверка локальных моделей…", "Checking local models…"))
+        self.job_state.setText(self.t("Проверка локальной среды…", "Checking the local runtime…"))
         self._begin("run", args)
 
     def _begin(self, task, arguments):
@@ -309,10 +314,10 @@ class MainWindow(QMainWindow):
             duration = self.response.get("estimated_duration_ms")
             self.duration.setText(format_timestamp(duration) if duration is not None else "—")
             self.import_status.setText("" if self.has_media else self._error_hint(self.response))
-        elif task == "verify":
-            state = self.t("Локальные ресурсы проверены", "Local resources verified") if exit_code == 0 else self._error_hint(self.response)
-            errors = self.response.get("errors", [])
-            self.settings_status.setText("\n".join([state, *map(str, errors)]))
+        elif task in ("startup", "verify"):
+            state = self.t("Локальная среда проверена", "Local runtime verified") if exit_code == 0 else self._processing_error()
+            self.settings_status.setText(state)
+            self.runtime_status.setText(state)
         elif task == "run":
             self._finish_run(exit_code)
         elif task == "export":
@@ -341,7 +346,7 @@ class MainWindow(QMainWindow):
             self.job_state.setText(self.t("Обработка отменена", "Processing cancelled"))
         else:
             self.job_state.setText(self.t("Обработка остановилась с ошибкой", "Processing failed"))
-            self.log.appendPlainText(self._error_hint(self.response))
+            self.log.appendPlainText(self._processing_error())
         if exit_code != 0:
             for stage, status in self.stage_updates.items():
                 if status != "completed":
@@ -383,7 +388,7 @@ class MainWindow(QMainWindow):
             self.projects.addItem(item)
 
     def _open_item(self, item, *_):
-        if self.task is None and item:
+        if self.task in (None, "startup") and item:
             self._open_project(item.data(Qt.ItemDataRole.UserRole))
 
     def _open_project(self, project_id):
@@ -466,12 +471,27 @@ class MainWindow(QMainWindow):
         self._refresh_projects()
         self._update_actions()
         self.settings_status.setText(self.t("Сохранено. Ресурсы ещё не проверены.", "Saved. Resources have not been checked."))
+        self.runtime_status.setText(self.settings_status.text())
         return True
+
+    def check_startup(self):
+        if self.task is None and not self.close_pending:
+            self._check_runtime("startup")
 
     def _verify(self):
         if self._save_preferences():
-            self.settings_status.setText(self.t("Проверка файлов и контрольных сумм…", "Checking files and checksums…"))
-            self._begin("verify", ["--config", str(self.settings.preferences), "verify-models"])
+            self._check_runtime("verify")
+
+    def _check_runtime(self, task):
+        self.runtime_status.setText(self.t("Проверка локальной среды…", "Checking the local runtime…"))
+        self.settings_status.setText(self.runtime_status.text())
+        self._begin(task, ["--config", str(self.settings.active_config), "check-runtime",
+                           "--results-dir", str(self.settings.results)])
+
+    def _processing_error(self):
+        summary = self._error_hint(self.response)
+        causes = [self._error_hint({"error_code": code}) for code in self.response.get("errors", [])]
+        return "\n".join([summary, *causes])
 
     def _apply_theme(self):
         theme = self.settings.theme
@@ -510,6 +530,26 @@ class MainWindow(QMainWindow):
             "NO_AUDIO_STREAM": t("В файле нет аудиодорожки.", "The file has no audio track."),
             "MEDIA_TOOL_UNAVAILABLE": t("Проверьте пути к FFmpeg и ffprobe.", "Check the FFmpeg and ffprobe paths."),
             "INSUFFICIENT_DISK_SPACE": t("Освободите место или выберите другой диск.", "Free some space or select another drive."),
+            "RUN_DIRECTORY_UNWRITABLE": t("Выберите доступную для записи локальную папку.",
+                                          "Choose a writable local folder."),
+            "OUTPUT_NOT_LOCAL": t("Сохраняйте результаты на локальном диске.", "Save results to a local drive."),
+            "RUNTIME_CHECK_FAILED": t("Проверьте перечисленные компоненты локальной среды.",
+                                      "Check the listed local runtime components."),
+            "CUDA_UNAVAILABLE": t("Проверьте драйвер NVIDIA и сборку PyTorch с CUDA или выберите CPU.",
+                                  "Check the NVIDIA driver and the CUDA build of PyTorch, or select CPU."),
+            "TORCH_RUNTIME_FAILED": t("Проверьте установленную сборку PyTorch и CUDA.",
+                                       "Check the installed PyTorch and CUDA build."),
+            "CTRANSLATE2_RUNTIME_FAILED": t("Проверьте CTranslate2 и библиотеки CUDA.",
+                                             "Check CTranslate2 and the CUDA libraries."),
+            "COMPUTE_TYPE_UNSUPPORTED": t("Выберите совместимые устройство и профиль.",
+                                           "Select a compatible device and profile."),
+            "COMPUTE_CHECK_TIMEOUT": t("Проверка вычислительного устройства превысила лимит времени.",
+                                        "The compute device check timed out."),
+            "COMPUTE_CHECK_FAILED": t("Не удалось запустить проверку вычислительного устройства.",
+                                       "The compute device check could not run."),
+            "INFERENCE_STAGE_FAILED": t("Последний снимок проекта доступен. Запустите обработку заново.",
+                                         "The last project snapshot remains available. Start a new run."),
+            "NO_SPEECH_SEGMENTS": t("В результате обработки нет реплик.", "Processing produced no phrases."),
             "ASR_GPU_OUT_OF_MEMORY": t("Не хватило памяти. Выберите профиль экономии памяти или уменьшите размер пакета.",
                                    "Insufficient memory. Use the low-memory profile or reduce the batch size."),
             "INVALID_CONFIG": t("Проверьте настройки моделей и устройства.", "Check model and device settings."),
@@ -529,8 +569,13 @@ class MainWindow(QMainWindow):
             "PDF_FONT_MISSING": t("Восстановите шрифты DejaVu Sans из проекта.",
                                   "Restore the bundled DejaVu Sans fonts."),
         }
-        hint = hints.get(code, payload.get("hint") or t("Проверьте настройки, локальные файлы и папку результатов.",
-                                                       "Check settings, local files, and the results folder."))
+        reason = code.partition(":")[0] if isinstance(code, str) else code
+        if reason in ("MISSING", "CORRUPT", "INVALID", "WRONG_SOURCE", "UNSAFE", "UNMANIFESTED"):
+            hint = t("Проверьте локальный комплект моделей и его манифест.",
+                     "Check the local model files and their manifest.")
+        else:
+            hint = hints.get(reason, payload.get("hint") or t("Проверьте настройки, локальные файлы и папку результатов.",
+                                                             "Check settings, local files, and the results folder."))
         return f"{hint} ({code})" if code else hint
 
     def closeEvent(self, event):

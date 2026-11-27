@@ -5,6 +5,7 @@ from pathlib import Path
 
 from local_transcriber.config import ConfigurationError
 from local_transcriber.domain.errors import ASROutOfMemory
+from local_transcriber.domain.paths import NonLocalPath, resolve_local
 
 BEAM_SIZE = 5
 LANGUAGES = ("ru", "auto", "en")
@@ -29,18 +30,16 @@ def read_terms(path: Path | None) -> str | None:
     if path is None:
         return None
     path_error = "terms-file must be a readable local UTF-8 text file"
-    if str(path).startswith(("\\\\", "//")):
-        raise ConfigurationError(path_error)
     try:
-        resolved = path.resolve(strict=True)
-        if str(resolved).startswith(("\\\\", "//")) or not resolved.is_file():
+        resolved = resolve_local(path, strict=True)
+        if not resolved.is_file():
             raise ConfigurationError(path_error)
         with resolved.open("rb") as stream:
             data = stream.read(MAX_TERMS_BYTES + 1)
         if len(data) > MAX_TERMS_BYTES:
             raise ConfigurationError("terms-file must be at most 4096 bytes")
         terms = [line.strip() for line in data.decode("utf-8-sig").splitlines() if line.strip()]
-    except (OSError, UnicodeError):
+    except (NonLocalPath, OSError, UnicodeError):
         raise ConfigurationError(path_error) from None
     return ", ".join(terms) or None
 
@@ -59,9 +58,12 @@ class ASREngine:
     """Load local Large V3 and local VAD for one ASR stage."""
 
     def __init__(self, model_dir: Path, vad_path: Path, device: str, compute_type: str):
-        for path in (model_dir, vad_path):
-            if not path.is_absolute() or str(path).startswith(("\\\\", "//")):
-                raise ConfigurationError("ASR and VAD need absolute local paths")
+        if not model_dir.is_absolute() or not vad_path.is_absolute():
+            raise ConfigurationError("ASR and VAD need absolute local paths")
+        try:
+            model_dir, vad_path = resolve_local(model_dir), resolve_local(vad_path)
+        except NonLocalPath:
+            raise ConfigurationError("ASR and VAD need absolute local paths") from None
         if not model_dir.is_dir() or not vad_path.is_file():
             raise ConfigurationError("ASR model directory or VAD weights are missing")
         self.model_dir = model_dir

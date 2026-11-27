@@ -13,6 +13,7 @@ from typing import Protocol
 import wave
 
 from local_transcriber.domain.errors import MediaError
+from local_transcriber.domain.paths import NonLocalPath, resolve_local
 
 SAMPLE_RATE = 16_000
 BYTES_PER_FRAME = 2
@@ -32,28 +33,27 @@ class MediaInfo:
 
 
 def create_run_directory(directory: Path) -> Path:
-    if str(directory).startswith(("\\\\", "//")) or str(directory.resolve()).startswith(("\\\\", "//")):
-        raise MediaError("OUTPUT_NOT_LOCAL", "Choose an output directory on a local drive.")
     try:
+        directory = resolve_local(directory)
         directory.mkdir(parents=True, exist_ok=False)
+    except NonLocalPath:
+        raise MediaError("OUTPUT_NOT_LOCAL", "Choose an output directory on a local drive.") from None
     except FileExistsError:
         raise MediaError("RUN_DIRECTORY_ALREADY_EXISTS", "Choose a run directory that does not exist.") from None
     except OSError:
         raise MediaError("RUN_DIRECTORY_UNWRITABLE", "Choose a writable parent directory.") from None
-    return directory.resolve()
+    return directory
 
 
 def _local_source(source: Path) -> Path:
-    if str(source).startswith(("\\\\", "//")):
-        raise MediaError("INPUT_NOT_LOCAL", "Choose a file on a local drive.")
     try:
-        local = source.resolve(strict=True)
-        if str(local).startswith(("\\\\", "//")):
-            raise MediaError("INPUT_NOT_LOCAL", "Choose a file on a local drive.")
+        local = resolve_local(source, strict=True)
         if not stat.S_ISREG(local.stat().st_mode):
             raise MediaError("INPUT_NOT_FILE", "Choose a regular audio or video file.")
         with local.open("rb"):
             pass
+    except NonLocalPath:
+        raise MediaError("INPUT_NOT_LOCAL", "Choose a file on a local drive.") from None
     except FileNotFoundError:
         raise MediaError("INPUT_NOT_FOUND", "Check the input file path.") from None
     except OSError:
@@ -61,7 +61,7 @@ def _local_source(source: Path) -> Path:
     return local
 
 
-def _check_space(directory: Path, required_bytes: int = 0) -> None:
+def check_space(directory: Path, required_bytes: int = 0) -> None:
     free_bytes = shutil.disk_usage(directory).free
     if free_bytes < required_bytes + DISK_RESERVE_BYTES:
         raise MediaError(
@@ -110,7 +110,7 @@ def _run_tool(
                     if time.monotonic() >= deadline:
                         raise MediaError("MEDIA_PROBE_TIMEOUT", "ffprobe timed out while inspecting the input file.")
                 else:
-                    _check_space(partial.parent)
+                    check_space(partial.parent)
                     if partial.exists() and partial.stat().st_size >= MAX_WAV_BYTES:
                         raise _wav_too_large()
     finally:
@@ -204,7 +204,7 @@ def prepare_audio(source: Path, target: Path, config: dict, *, cancel: CancelSig
     if estimate >= MAX_WAV_BYTES:
         raise _wav_too_large()
     try:
-        _check_space(target.parent, estimate)
+        check_space(target.parent, estimate)
         with TemporaryDirectory(prefix=".audio-", dir=target.parent) as temporary:
             partial = Path(temporary) / "audio.wav"
             code, _ = _run_tool([
@@ -213,7 +213,7 @@ def prepare_audio(source: Path, target: Path, config: dict, *, cancel: CancelSig
                 "-vn", "-ar", str(SAMPLE_RATE), "-ac", "1", "-c:a", "pcm_s16le", str(partial),
             ], cancel, partial=partial)
             if code:
-                _check_space(target.parent)
+                check_space(target.parent)
                 raise MediaError("AUDIO_DECODE_FAILED", "FFmpeg could not decode the audio. Check the codec and file integrity.", exit_code=1)
             duration_ms = _check_wav(partial)
             _check_cancel(cancel)

@@ -101,7 +101,7 @@ def pipeline_inputs(tmp_path, monkeypatch):
     source = tmp_path / "input.wav"
     run_dir = tmp_path / "run"
 
-    def verify(config, *, asr_only):
+    def verify(config, _directory, *, asr_only, **_kwargs):
         assert asr_only
         assert "alignment" not in config and "diarization" not in config
         return []
@@ -110,7 +110,7 @@ def pipeline_inputs(tmp_path, monkeypatch):
         target.write_bytes(b"synthetic WAV placeholder")
         return {"duration_ms": 2000, "sample_rate": 16000, "channels": 1}
 
-    monkeypatch.setattr(pipeline, "verify_models", verify)
+    monkeypatch.setattr(pipeline, "check_runtime", verify)
     monkeypatch.setattr(pipeline, "prepare_audio", prepare)
     return ["--config", str(config_path), "asr", str(source), "--run-dir", str(run_dir)], run_dir
 

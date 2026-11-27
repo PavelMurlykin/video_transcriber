@@ -80,15 +80,29 @@ local wheels. The app uses local resources at runtime.
   next one, and rename a speaker throughout the project. Undo and redo work
   within the current session. You can edit saved phrases if the source is missing.
 - In **Settings**, set local paths, the device, ASR batch size, and results
-  folder. Verify local files checks model files against the manifest. The
-  theme applies when saved and the interface language applies after restarting.
+  folder. Check local runtime verifies FFmpeg, the model manifest, compute
+  device, and output disk. The theme applies when saved and the interface
+  language applies after restarting.
 
 The client reads initial paths from `config.local.json` and saves preferences
 in `config.ui.local.json`. Use absolute local paths. Results and the SQLite
 catalog go into `artifacts` next to the base configuration by default. Opening
 a project from the catalog does not run inference. With PySide6 missing,
-the launch command prints a setup hint and exits with code 2. See the
-[stage 6 report](stage-6-report.md) for validation results.
+the launch command prints a setup hint and exits with code 2. The window
+checks the local runtime in the background on launch and again before processing.
+On failure, fix the component listed below the import form or in the
+processing log. Saved projects can open even when models are missing.
+Runtime token prompts and downloads are disabled.
+
+Run the same checks from the CLI.
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber check-runtime --results-dir artifacts
+```
+
+Use `--asr-only` to check the speech recognition setup and
+`--profile memory` to check the low-memory profile. A failed check exits with
+code 2. See the [stage 8 report](stage-8-report.md) for validation results.
 
 ### Transcript export
 

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import shutil
 import time
 import wave
 
@@ -139,6 +140,16 @@ def test_settings_form_persists_device_batch_theme_and_results(window, tmp_path)
     assert (saved.theme, saved.language) == ("dark", "en")
 
 
+def test_startup_failure_explains_missing_dependencies(window):
+    app, widget = window
+    widget.check_startup()
+    assert widget.task == "startup"
+    wait_for(app, lambda: widget.task is None)
+    assert widget.response["error_code"] == "RUNTIME_CHECK_FAILED"
+    assert "MISSING:manifest" in widget.runtime_status.text()
+    assert widget.choose.isEnabled()
+
+
 def test_export_uses_current_edit_and_chosen_txt_path(window, tmp_path, monkeypatch):
     app, widget = window
     store = ProjectStore(widget.settings.database)
@@ -220,24 +231,39 @@ def check_playback(app, editor, *, video_expected):
 
 
 @pytest.mark.integration
-def test_full_desktop_run_in_windows_appcontainer(capfd):
+def test_full_desktop_run_in_windows_appcontainer(capfd, monkeypatch):
     if "LOCAL_TRANSCRIBER_UI_ACCEPTANCE" not in os.environ:
         pytest.skip("Set LOCAL_TRANSCRIBER_UI_ACCEPTANCE to a new private artifacts directory")
     from scripts.verify_offline import probe_network, windows_network_isolation
+    from ctypes import windll
+    from docx import Document
+    from psutil import Process, Error
 
     output = Path(os.environ["LOCAL_TRANSCRIBER_UI_ACCEPTANCE"]).resolve()
     output.mkdir(parents=True, exist_ok=False)
     isolation = windows_network_isolation()
     probes = probe_network()
     verified = isolation["verified"] and all(probe["blocked"] for probe in probes)
-    write_json(output / "network.json", {"verified": verified, "os_isolation": isolation, "unguarded_probes": probes})
-    assert verified
+    admin = bool(windll.shell32.IsUserAnAdmin())
+    write_json(output / "network.json", {"verified": verified, "administrator": admin,
+                                        "os_isolation": isolation, "unguarded_probes": probes})
+    assert verified and not admin
 
     mp4, mp3 = (next(Path("sample").glob(f"*.{extension}")).resolve() for extension in ("mp4", "mp3"))
+    source_dir = output / "Media_Запись"
+    source_dir.mkdir()
+    source = source_dir / "Sample_Кириллица.mp4"
+    shutil.copyfile(mp4, source)
     settings = Settings.load(Path("config.local.json").resolve(), output / "desktop.local.json")
     settings = replace(settings, results=output)
+    settings.save()
+    token_canary = "synthetic-unused-hub-token"
+    monkeypatch.setenv("HF_TOKEN", token_canary)
+    monkeypatch.setenv("HF_TOKEN_PATH", str(output / "synthetic-token"))
     app = QApplication.instance() or QApplication([])
     window = MainWindow(settings)
+    child_env = window.cli.process.processEnvironment()
+    assert not child_env.contains("HF_TOKEN") and not child_env.contains("HF_TOKEN_PATH")
     window.show()
     timer = QTimer(window)
     timer.setInterval(50)
@@ -245,14 +271,16 @@ def test_full_desktop_run_in_windows_appcontainer(capfd):
     timer.timeout.connect(lambda: ticks.append(time.perf_counter()))
     reopened = None
     try:
-        window.verify.click()
-        wait_for(app, lambda: window.task is None, seconds=30)
+        startup_started = time.perf_counter()
+        window.check_startup()
+        wait_for(app, lambda: window.task is None, seconds=75)
+        startup_seconds = time.perf_counter() - startup_started
         assert window.response.get("status") == "completed"
-        window.select_source(str(mp4))
+        window.select_source(str(source))
         wait_for(app, lambda: window.start.isEnabled())
         window.speakers.setValue(2)
         window.start.click()
-        wait_for(app, lambda: window.stage_updates.get("asr") == "started", seconds=60)
+        wait_for(app, lambda: window.stage_updates.get("asr") == "started", seconds=90)
         requested = time.perf_counter()
         window.cancel.click()
         wait_for(app, lambda: window.task is None, seconds=30)
@@ -262,10 +290,35 @@ def test_full_desktop_run_in_windows_appcontainer(capfd):
         cancelled, = store.list_projects()
         assert cancelled["status"] == "cancelled" and cancelled["last_stage"] == "audio"
 
+        window.retry.click()
+        wait_for(app, lambda: window.stage_updates.get("asr") == "started", seconds=90)
+        worker = None
+
+        def find_worker():
+            nonlocal worker
+            try:
+                for process in Process(window.cli.process.processId()).children(recursive=True):
+                    if ("local_transcriber.workers.transcription_worker" in process.cmdline()
+                            and not process.children()):
+                        worker = process
+                        return True
+            except Error:
+                pass
+            return False
+
+        wait_for(app, find_worker, seconds=15)
+        worker.kill()
+        wait_for(app, lambda: window.task is None, seconds=30)
+        assert window.response.get("error_code") == "INFERENCE_STAGE_FAILED"
+        failed, = [item for item in store.list_projects() if item["status"] == "failed"]
+        assert failed["last_stage"] == "audio" and window.retry.isEnabled()
+        window._open_project(failed["project_id"])
+        assert window.editor.session.saved.project.completed_stages == ["audio"]
+
         launched = time.perf_counter()
         timer.start()
         window.retry.click()
-        wait_for(app, lambda: window.stage_updates.get("asr") == "started", seconds=60)
+        wait_for(app, lambda: window.stage_updates.get("asr") == "started", seconds=90)
         window.tabs.setCurrentWidget(window.settings_page)
         wait_for(app, lambda: len(ticks) >= 5)
         assert window.task == "run" and window.tabs.currentWidget() is window.settings_page
@@ -276,7 +329,7 @@ def test_full_desktop_run_in_windows_appcontainer(capfd):
         assert max_gap < 1.0
         assert window.open_result.isEnabled() and all(status == "completed" for status in window.stage_updates.values())
         assert len(window.stage_updates) == 5
-        assert len(list(output.glob("desktop-*/metrics.json"))) == 2
+        assert len(list(output.glob("desktop-*/metrics.json"))) == 3
         window.open_result.click()
         assert window.tabs.currentWidget() is window.editor
         project = window.editor.session.saved.project
@@ -289,20 +342,46 @@ def test_full_desktop_run_in_windows_appcontainer(capfd):
         edited_id = window.editor.current_id
         window.close()
         reopened = MainWindow(Settings.load(settings.base_config, settings.preferences))
+        assert reopened.settings.database == settings.database
         reopened.show()
         reopened._open_project(project.project_id)
         edited = next(segment for segment in reopened.editor.session.saved.project.segments if segment.id == edited_id)
         assert edited.text == "Синтетическая правка для проверки"
         assert reopened.task is None
+        export_sizes = {}
+        for extension in ("txt", "docx", "pdf"):
+            destination = output / f"transcript.{extension}"
+
+            def configure_dialog(dialog):
+                dialog.file_format.setCurrentIndex(dialog.file_format.findData(extension))
+                return QDialog.DialogCode.Accepted
+
+            with monkeypatch.context() as scoped:
+                scoped.setattr(ExportDialog, "exec", configure_dialog)
+                scoped.setattr(QFileDialog, "getSaveFileName", lambda *_args, **_kwargs: (str(destination), ""))
+                reopened.editor.export_button.click()
+            wait_for(app, lambda: reopened.task is None)
+            assert reopened.response.get("status") == "exported"
+            export_sizes[extension] = destination.stat().st_size
+            assert export_sizes[extension] > 0
+        assert edited.text in (output / "transcript.txt").read_text(encoding="utf-8")
+        assert any(edited.text in p.text for p in Document(output / "transcript.docx").paragraphs)
+        assert (output / "transcript.pdf").read_bytes().startswith(b"%PDF-")
         audio_project = replace(project, project_id="audio-player-check", media_path=str(mp3))
         store.create(audio_project, status="completed")
         reopened._open_project(audio_project.project_id)
         audio = check_playback(app, reopened.editor, video_expected=False)
 
-        assert "Input #0" not in capfd.readouterr().err, "The player logged source metadata"
+        captured = capfd.readouterr()
+        log = captured.out + captured.err + window.log.toPlainText()
+        for run_metrics in output.glob("desktop-*/metrics.json"):
+            log += run_metrics.read_text(encoding="utf-8")
+        assert not any(value in log for value in ("Input #0", source.name, edited.text, token_canary))
         write_json(output / "desktop-metrics.json", {
             "qt_platform": app.platformName(),
+            "startup_seconds": startup_seconds,
             "cancel_seconds": cancellation_seconds, "ui_full_run_seconds": elapsed,
+            "worker_crash_recovered": True, "administrator": admin, "exports_bytes": export_sizes,
             "ui_timer_ticks": len(ticks), "ui_timer_max_gap_seconds": max_gap,
             "speakers": len(project.speakers), "segments": len(project.segments),
             "overlap_regions": len(project.overlap_regions), "mp4": video, "mp3": audio,

@@ -108,6 +108,15 @@ The player uses Qt Multimedia with local file URLs. The editor loads SQLite
 snapshots independently of inference and debounces text edits before saving
 them. It flushes pending text before switching projects or closing.
 
+The CLI runs with offline environment variables and a Python socket guard.
+FFmpeg and the Qt player restrict media protocols to local inputs. Hugging Face
+token variables are removed from worker environments. Runtime validation rejects
+network share paths, verifies FFmpeg and ffprobe, checks local model hashes and
+output disk, and runs a small PyTorch computation in a separate subprocess.
+It checks the selected CTranslate2 compute type before loading any models.
+Runtime errors expose component names and stable codes. Native inference output
+is discarded and worker status files are published atomically.
+
 Preparation scripts alone may access the internet. Community-1 terms must be
 accepted by the user. The token is supplied using masked input in a separate
 PowerShell process and is not stored. HF-cache symlinks are materialized and

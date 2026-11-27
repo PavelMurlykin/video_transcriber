@@ -177,7 +177,7 @@ def test_pipeline_saves_alignment_and_diarization_before_failed_merge(tmp_path, 
     def fail(*_args, **_kwargs):
         raise RuntimeError("synthetic merge failure")
 
-    monkeypatch.setattr(pipeline, "verify_models", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(pipeline, "check_runtime", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(pipeline, "prepare_audio", prepare)
     monkeypatch.setattr(pipeline, "_run_inference", inference)
     monkeypatch.setattr(pipeline, "merge", fail)
