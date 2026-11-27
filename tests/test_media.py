@@ -49,6 +49,20 @@ def test_corrupt_input_fails_without_modification(tmp_path, ffmpeg_config):
     assert original.read_bytes() == b"synthetic-invalid-media"
 
 
+def test_cli_inspects_media_without_creating_prepared_audio(tmp_path, ffmpeg_config, capsys):
+    source = tmp_path / "Метаданные.wav"
+    make_media(ffmpeg_config, source, "-f", "lavfi", "-i", "sine=d=1:r=22050")
+    settings = tmp_path / "config.json"
+    settings.write_text(json.dumps(ffmpeg_config), encoding="utf-8")
+    before = source.read_bytes()
+    assert main(["--config", str(settings), "inspect-media", str(source)]) == 0
+    metadata = json.loads(capsys.readouterr().out)
+    assert metadata["estimated_duration_ms"] == 1000
+    assert metadata["audio_sample_rate"] == 22050
+    assert source.read_bytes() == before
+    assert set(tmp_path.iterdir()) == {source, settings}
+
+
 def test_no_audio_stream_fails(tmp_path, ffmpeg_config):
     original = tmp_path / "silent_video.mp4"
     subprocess.run([ffmpeg_config["ffmpeg"], "-v", "error", "-f", "lavfi", "-i", "color=black:s=32x32:d=0.2",

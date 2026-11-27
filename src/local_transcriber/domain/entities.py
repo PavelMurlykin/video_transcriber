@@ -72,6 +72,14 @@ class TranscriptionJob:
     stages: dict[str, StageStatus] = field(
         default_factory=lambda: dict.fromkeys(TRANSCRIPTION_STAGES, StageStatus.PENDING)
     )
+    cancel_file: Path | None = None
+
+    def is_set(self) -> bool:
+        return self.cancel_file is not None and self.cancel_file.exists()
+
+    def check_cancelled(self) -> None:
+        if self.is_set():
+            raise KeyboardInterrupt
 
     @contextmanager
     def stage(self, name: str):

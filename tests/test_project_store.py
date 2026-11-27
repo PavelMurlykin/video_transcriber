@@ -62,6 +62,38 @@ def test_new_edit_clears_redo_and_stale_session_cannot_overwrite(store):
     assert store.load("fixture").project.segments[0].text == "Пример"
 
 
+def test_split_merge_and_bounds_survive_reopening_with_undo_redo(tmp_path):
+    project = sample_project()
+    segment = project.segments[0]
+    segment.text = "Первое второе"
+    segment.words = [Word("Первое", 50, 400, "spk_0"), Word("второе", 550, 950, "spk_0")]
+    store = ProjectStore(tmp_path / DATABASE_FILENAME)
+    store.create(project, status="completed")
+    session = EditSession(store, project.project_id)
+    with pytest.raises(ProjectStoreError, match="INVALID_SEGMENT_SPLIT"):
+        session.split_segment(segment.id, 1000, 1)
+    session.split_segment(segment.id, 500, 1)
+    left, right = store.load(project.project_id).project.segments
+    assert (left.id, left.end_ms, left.text, right.start_ms, right.text) == (
+        segment.id, 500, "Первое", 500, "второе")
+    assert right.words == segment.words[1:]
+    session.set_segment_bounds(right.id, 700, 1000)
+    word = store.load(project.project_id).project.segments[1].words[0]
+    assert word.alignment_missing and word.start_ms is None and word.end_ms is None
+    session.undo()
+    assert store.load(project.project_id).project.segments == [left, right]
+    session.set_segment_speaker(right.id, "spk_1")
+    session.merge_with_next(left.id)
+    merged, = EditSession(store, project.project_id).saved.project.segments
+    assert merged.text == segment.text and merged.speaker_id == "unknown" and merged.requires_review
+    assert [word.speaker_id for word in merged.words] == ["spk_0", "spk_1"]
+    assert session.can_undo and not session.can_redo
+    session.undo()
+    assert session.can_redo and len(store.load(project.project_id).project.segments) == 2
+    session.redo()
+    assert store.load(project.project_id).project.segments == [merged]
+
+
 def test_forced_exit_rolls_back_uncommitted_write(store):
     program = """
 import os, sqlite3, sys

@@ -9,7 +9,7 @@ from .core.model_manager import verify_models
 from .core.transcription import ASROptions, LANGUAGES, PROFILES
 from .domain.errors import ASROutOfMemory, MediaError
 from .storage.commands import add_project_commands, run_project_command
-from .storage.projects import ProjectStoreError
+from .storage.projects import ProjectStoreError, local_path
 
 
 def main(argv=None):
@@ -18,6 +18,7 @@ def main(argv=None):
     parser.add_argument("--project-db", type=Path, help="path to the local SQLite project database")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_project_commands(subparsers)
+    subparsers.add_parser("inspect-media", help="inspect a local file").add_argument("input", type=Path)
     subparsers.add_parser("verify-models", help="verify all local resources and SHA-256 hashes")
     for name, help_text in (
         ("prepare-media", "extract a 16 kHz mono PCM WAV"),
@@ -28,6 +29,7 @@ def main(argv=None):
         run.add_argument("input", type=Path)
         run.add_argument("--run-dir", type=Path, required=True, help="new directory for private outputs and metrics")
         if name != "prepare-media":
+            run.add_argument("--cancel-file", type=Path, help=argparse.SUPPRESS)
             run.add_argument("--terms-file", type=Path, help="local UTF-8 text file, one suggested term per line")
             run.add_argument("--profile", choices=PROFILES, default="default", help="ASR memory profile")
         if name == "asr":
@@ -36,6 +38,10 @@ def main(argv=None):
     try:
         if args.command == "projects":
             return run_project_command(args)
+        if args.command == "inspect-media":
+            from .core.media import probe_media
+            print(json.dumps(probe_media(args.input, load_media_config(args.config))))
+            return 0
         if args.command == "prepare-media":
             from .core.media import create_run_directory, prepare_audio
             from .core.offline_guard import block_network
@@ -62,6 +68,7 @@ def main(argv=None):
             result = run_pipeline(
                 args.config, config, args.input, args.run_dir, asr_only=asr_only, options=options,
                 project_db=args.project_db,
+                cancel_file=local_path(args.cancel_file) if args.cancel_file is not None else None,
                 event=lambda message: print(message, flush=True),
             )
         keys = ("status", "project_id", "wall_seconds", "speaker_count", "segment_count", "recognized_language")
@@ -86,6 +93,7 @@ def main(argv=None):
         return 2
     except Exception as error:
         hints = {"prepare-media": "Check --config and the output directory.",
+                 "inspect-media": "Check --config and the media file.",
                  "projects": "Check the project database, JSON format and local file paths."}
         hint = hints.get(args.command, "Check config, verify-models and run-dir/metrics.json.")
         print(json.dumps({"status": "failed", "error_type": type(error).__name__,

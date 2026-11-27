@@ -32,6 +32,13 @@ Never send tokens in chat or place them in `.env`.
 
 ## Preparing audio only
 
+Use `inspect-media` with the same FFmpeg configuration to view metadata for
+the first audio stream without extracting WAV. The reported duration is an estimate.
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber --config .tools/ffmpeg-install.json inspect-media 'sample\Дуэт Да.mp4'
+```
+
 ```powershell
 .\.venv\Scripts\python.exe -m local_transcriber --config .tools/ffmpeg-install.json prepare-media 'sample\Дуэт Да.mp4' --run-dir artifacts\my-audio
 ```
@@ -48,6 +55,40 @@ WAV. If a command fails, check `error_code` and `hint` in the terminal.
 container could not be read, and `INSUFFICIENT_DISK_SPACE` means the drive has
 too little space. For a WAV above the format's approximately 4 GiB limit, split
 the recording into parts.
+
+## Desktop client
+
+After the main setup, install the interface dependencies for Windows x64
+and launch the app from the repository root. The first step needs PyPI or
+local wheels. The app uses local resources at runtime.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --only-binary=:all: --require-hashes -r requirements-ui.lock
+.\.venv\Scripts\python.exe -m local_transcriber.ui
+```
+
+- On **Import**, choose or drop a local recording. Select the language and
+  recognition profile. For Russian, set the speaker count or choose Auto.
+  English and automatic language detection run ASR only.
+- **Processing** shows the stages and error messages. After cancelling or
+  encountering an error, Retry starts a new run and leaves the last saved
+  stage available in the catalog.
+- In the **Editor**, click a timestamp to seek. Search, current phrase
+  highlighting, and playback rates of 0.75×, 1×, 1.25× and 1.5× are available.
+  Text and speaker changes save automatically. Use Save interval to apply
+  new bounds. You can split a phrase at a word boundary, merge it with the
+  next one, and rename a speaker throughout the project. Undo and redo work
+  within the current session. You can edit saved phrases if the source is missing.
+- In **Settings**, set local paths, the device, ASR batch size, and results
+  folder. Verify local files checks model files against the manifest. The
+  theme applies when saved and the interface language applies after restarting.
+
+The client reads initial paths from `config.local.json` and saves preferences
+in `config.ui.local.json`. Use absolute local paths. Results and the SQLite
+catalog go into `artifacts` next to the base configuration by default. Opening
+a project from the catalog does not run inference. With PySide6 missing,
+the launch command prints a setup hint and exits with code 2. See the
+[stage 6 report](stage-6-report.md) for validation results.
 
 ## Transcribing a recording
 

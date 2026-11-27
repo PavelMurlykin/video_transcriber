@@ -1,5 +1,5 @@
 """Inspect local media and extract a validated PCM WAV in the job's directory."""
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import json
 import math
 import os
@@ -8,8 +8,8 @@ import shutil
 import stat
 import subprocess
 from tempfile import TemporaryDirectory
-from threading import Event
 import time
+from typing import Protocol
 import wave
 
 from local_transcriber.domain.errors import MediaError
@@ -74,14 +74,18 @@ def _wav_too_large() -> MediaError:
     return MediaError("WAV_TOO_LARGE", "Split the recording into parts that fit the 4 GiB PCM WAV size limit.")
 
 
-def _check_cancel(cancel: Event | None) -> None:
+class CancelSignal(Protocol):
+    def is_set(self) -> bool: ...
+
+
+def _check_cancel(cancel: CancelSignal | None) -> None:
     if cancel is not None and cancel.is_set():
         raise KeyboardInterrupt
 
 
 def _run_tool(
     command: list[str],
-    cancel: Event | None,
+    cancel: CancelSignal | None,
     *,
     partial: Path | None = None,
 ) -> tuple[int, bytes | None]:
@@ -138,7 +142,7 @@ def _duration_ms(value: object) -> int | None:
     return None
 
 
-def _probe(source: Path, config: dict, cancel: Event | None) -> MediaInfo:
+def _probe(source: Path, config: dict, cancel: CancelSignal | None) -> MediaInfo:
     code, stdout = _run_tool([
         config["ffprobe"], "-v", "error", "-protocol_whitelist", "file,pipe",
         "-select_streams", "a:0", "-show_entries",
@@ -166,6 +170,10 @@ def _probe(source: Path, config: dict, cancel: Event | None) -> MediaInfo:
     )
 
 
+def probe_media(source: Path, config: dict) -> dict:
+    return asdict(_probe(_local_source(source), config, None))
+
+
 def _check_wav(path: Path) -> int:
     if path.stat().st_size >= MAX_WAV_BYTES:
         raise _wav_too_large()
@@ -183,7 +191,7 @@ def _check_wav(path: Path) -> int:
     return max(1, round(count * 1000 / SAMPLE_RATE))
 
 
-def prepare_audio(source: Path, target: Path, config: dict, *, cancel: Event | None = None) -> dict:
+def prepare_audio(source: Path, target: Path, config: dict, *, cancel: CancelSignal | None = None) -> dict:
     """Return actual WAV metadata. The destination must be new and its parent must exist."""
     source = _local_source(source)
     if source == target.resolve():

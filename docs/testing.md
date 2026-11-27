@@ -63,6 +63,24 @@ save-conflict detection and recovery after an abrupt exit during a SQLite
 write. The acceptance run uses separate CLI processes for editing and reopening
 with OS network isolation. See the [stage 5 report](stage-5-report.md).
 
+Stage 6 tests exercise Qt import and media inspection, saved settings, editor
+controls, and restoring edits after reopening. With the Qt dependencies, run
+the standard suite and opt in to the real Windows AppContainer acceptance test.
+Use a new ignored artifacts directory for each run. The sample directory must
+contain a local MP4 and the matching MP3.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q -p no:debugging -m 'not integration'
+$env:QT_QPA_PLATFORM = 'windows'
+$env:LOCAL_TRANSCRIBER_UI_ACCEPTANCE = 'artifacts\stage6-ui-acceptance'
+.\.venv\Scripts\python.exe -m pytest -q -p no:debugging -m integration tests\test_desktop_ui.py
+```
+
+The integration test checks network isolation from the Qt process, cancels and
+retries a real job, switches tabs during processing, and verifies playing,
+seeking and pausing MP4 and MP3. It saves network evidence and metrics in the
+artifacts directory. See the [stage 6 report](stage-6-report.md).
+
 Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
 text, and a run under OS network isolation with local resources.

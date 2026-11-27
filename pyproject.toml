@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "local-transcriber"
 version = "0.0.1"
-description = "Offline media preparation, transcription and diarization CLI"
+description = "Offline media preparation, transcription and diarization for Windows"
 requires-python = ">=3.11,<3.14"
 dependencies = ["whisperx==3.8.6", "psutil>=7", "transformers<5"]
 

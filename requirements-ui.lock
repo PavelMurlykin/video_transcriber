@@ -1,0 +1,5 @@
+# Windows x64 wheels from PyPI. Install separately from the CUDA dependencies.
+# Essentials and Addons provide PySide6.QtWidgets and PySide6.QtMultimedia.
+PySide6-Addons==6.12.0 --hash=sha256:98d8d62010da6605344cee83e5c96fb846170a1f2d924523f10f5d92078b02b0
+PySide6-Essentials==6.12.0 --hash=sha256:c9a95102aa23c1f86516a30d5a9be37552d324eee7e567eb7508973f1218cb42
+shiboken6==6.12.0 --hash=sha256:a1906cb8116869178c64b6bab52623bbc8b4ceed7b30bfc3c9aa0f6e67f6438e

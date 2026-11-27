@@ -101,24 +101,38 @@ def _run_inference(stage: str, job: TranscriptionJob, config_path: Path, options
             command.extend(["--terms-file", str(options.terms_file)])
     with Sampler() as sampler:
         # Library output can contain transcript text and the glossary.
-        process = subprocess.run(
+        job.check_cancelled()
+        with subprocess.Popen(
             command, env=offline_environment(job.run_dir / "runtime-cache"),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        ) as process:
+            try:
+                while True:
+                    job.check_cancelled()
+                    try:
+                        exit_code = process.wait(timeout=0.2)
+                        break
+                    except subprocess.TimeoutExpired:
+                        continue
+            except BaseException:
+                if process.poll() is None:
+                    process.kill()
+                raise
     status_path = job.run_dir / f"{stage}-status.json"
     status = (json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists()
               else {"status": "failed", "error_type": "NativeWorkerExit"})
-    return {**status, "stage": stage, "exit_code": process.returncode,
+    return {**status, "stage": stage, "exit_code": exit_code,
             "wall_seconds": time.perf_counter() - started, **sampler.result(),
             "gpu_used_mib_after_worker_exit": gpu_memory_mib()}
 
 
 def run_pipeline(
     config_path: Path, config: dict, source: Path, directory: Path, *,
-    asr_only: bool = False, options: ASROptions = ASROptions(), project_db: Path | None = None, event=print,
+    asr_only: bool = False, options: ASROptions = ASROptions(), project_db: Path | None = None,
+    cancel_file: Path | None = None, event=print,
 ) -> dict:
     directory = create_run_directory(directory)
-    job = TranscriptionJob(media_path=source, run_dir=directory)
+    job = TranscriptionJob(media_path=source, run_dir=directory, cancel_file=cancel_file)
     audio_path = job.run_dir / "audio.wav"
     project_path = job.run_dir / "transcript.json"
     compute_type, batch_size = options.inference_settings(config)
@@ -159,15 +173,17 @@ def run_pipeline(
 
     started = time.perf_counter()
     try:
+        job.check_cancelled()
         errors = verify_models(config, asr_only=asr_only)
         if errors:
             metrics["verification_errors"] = errors
             raise ValueError("MODEL_VERIFICATION_FAILED")
+        job.check_cancelled()
         store = ProjectStore(project_db or directory.parent / DATABASE_FILENAME)
         event(json.dumps({"stage": "audio", "status": "started"}))
         audio_start = time.perf_counter()
         with job.stage("audio"):
-            metadata = prepare_audio(job.media_path, audio_path, config)
+            metadata = prepare_audio(job.media_path, audio_path, config, **({"cancel": job} if cancel_file else {}))
             metrics.update(metadata)
             metrics["prepared_audio_sha256"] = sha256(audio_path)
             project = Project(
@@ -179,6 +195,7 @@ def run_pipeline(
             checkpoint()
         metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start, "status": job.stages["audio"]})
         save()
+        event(json.dumps(metrics["stages"][-1]))
         inference_stages = ("asr",) if asr_only else ("asr", "alignment", "diarization")
         for stage in inference_stages:
             event(json.dumps({"stage": stage, "status": "started"}))
@@ -206,6 +223,7 @@ def run_pipeline(
             save()
             event(json.dumps({"stage": stage, "status": measurement["status"], "wall_seconds": measurement["wall_seconds"]}))
         if not asr_only:
+            job.check_cancelled()
             _merge_project(project, job, checkpoint, metrics, event)
         audio_path.unlink()
         metrics.update(status="completed", speaker_count=len(project.speakers), segment_count=len(project.segments),
@@ -248,3 +266,4 @@ def _merge_project(project: Project, job: TranscriptionJob, checkpoint, metrics:
         checkpoint("completed")
     metrics["stages"].append({"stage": "merge", "status": "completed", "wall_seconds": time.perf_counter() - started,
                               "gpu_used_mib_after_worker_exit": gpu_memory_mib()})
+    event(json.dumps({"stage": "merge", "status": "completed", "wall_seconds": metrics["stages"][-1]["wall_seconds"]}))

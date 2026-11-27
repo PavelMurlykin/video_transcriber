@@ -100,6 +100,14 @@ available without launching models. Edits, undo and redo each commit to the
 same database. The undo/redo stacks keep the changed entities in memory for
 the current editor session. Revision checks reject stale saves.
 
+The PySide6 client starts the existing CLI with an asynchronous
+`QProcess` and shows its structured progress and errors. Inference stays in
+the same subprocesses as the CLI. A cancellation file signals the worker
+controller to stop the current process and finalize the last checkpoint.
+The player uses Qt Multimedia with local file URLs. The editor loads SQLite
+snapshots independently of inference and debounces text edits before saving
+them. It flushes pending text before switching projects or closing.
+
 Preparation scripts alone may access the internet. Community-1 terms must be
 accepted by the user. The token is supplied using masked input in a separate
 PowerShell process and is not stored. HF-cache symlinks are materialized and
