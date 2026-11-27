@@ -195,6 +195,11 @@ The ASR defaults are CUDA, `float16`, `batch_size=4`, and `beam_size=5`. Set
 items and selects `int8_float16` on CUDA or `int8` on CPU. It retains Large V3.
 Stage 2 tested the memory profile on CUDA.
 
+`metrics.json` records audio duration, time for each phase, the largest
+sampled VRAM usage for the entire GPU, and process-tree RSS. Compare runs
+with the profile and other applications' GPU load in mind. See the
+[stage 9 report](stage-9-report.md) for long-recording measurements.
+
 Russian Wav2Vec2 places word timestamps within the phrase. Tokens with digits
 or letters outside the model vocabulary, text annotations such as
 `[неразборчиво]`, and words without a valid time range have `null` in

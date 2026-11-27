@@ -96,6 +96,20 @@ after the successful retry and checks that the run log includes neither the
 source file name nor the synthetic transcript and token markers. See the
 [stage 8 report](stage-8-report.md).
 
+Stage 9 measures the complete processing chain from the desktop in Windows
+AppContainer. Run one case at a time on the GPU. Use a fresh private output
+directory and a local audio file. The example assumes a prepared five-minute
+fixture with two voices and overlapping speech.
+
+```powershell
+$env:QT_QPA_PLATFORM = 'windows'
+.\.venv\Scripts\python.exe scripts\benchmark_desktop.py --input artifacts\bench\5m-clean-2.wav --run artifacts\bench\first --speakers 2 --expect-overlap
+```
+
+The runner writes network evidence, phase measurements, structural JSON
+validation, and Qt event timer measurements. See the
+[stage 9 report](stage-9-report.md) for the fixture composition and results.
+
 Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
 text, and a run under OS network isolation with local resources.

@@ -13,6 +13,16 @@ from local_transcriber.domain.entities import TranscriptionJob
 from local_transcriber.ui.settings import RunRequest, Settings
 
 
+def test_sampler_records_a_short_stage(monkeypatch):
+    monkeypatch.setattr(pipeline, "gpu_memory_mib", lambda: 123)
+    with pipeline.Sampler() as sampler:
+        pass
+    measurement = sampler.result()
+    assert measurement["samples"] >= 1
+    assert measurement["sampled_peak_process_tree_rss_bytes"] > 0
+    assert measurement["sampled_peak_gpu_used_mib"] == 123
+
+
 @pytest.fixture
 def settings(tmp_path):
     config = tmp_path / "config.json"

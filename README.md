@@ -1,6 +1,6 @@
 # Local Transcriber
 
-Windows offline transcription prototype. Stages **0–8** of
+Windows offline transcription prototype. Stages **0–9** of
 [the primary specification](Local_Transcriber_Codex_Development_Plan.md).
 
 Pipeline: local media → 16 kHz mono WAV → Whisper Large V3 / WhisperX → Russian
@@ -20,6 +20,7 @@ processing, edits saved transcripts and exports them to TXT, DOCX and PDF.
 - [Stage 6 desktop client](docs/stage-6-report.md)
 - [Stage 7 transcript export](docs/stage-7-report.md)
 - [Stage 8 offline runtime and recovery](docs/stage-8-report.md)
+- [Stage 9 performance on Legion Pro 5](docs/stage-9-report.md)
 
 Python 3.11–3.13; vendor-compatible CUDA 12.8 / Torch 2.8 stack. The agreed local
 model store is `%USERPROFILE%\.lmstudio\models\local-transcriber`; LM Studio

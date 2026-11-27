@@ -43,7 +43,7 @@ class Sampler:
     def sample(self):
         import psutil
         parent = psutil.Process()
-        while not self.stop.is_set():
+        while True:
             value = gpu_memory_mib()
             if value is not None:
                 self.max_vram_mib = max(self.max_vram_mib or 0, value)
@@ -59,7 +59,8 @@ class Sampler:
                     pass
             self.max_rss_bytes = max(self.max_rss_bytes, rss)
             self.samples += 1
-            self.stop.wait(0.5)
+            if self.stop.wait(0.5):
+                break
 
     def __enter__(self):
         self.thread.start()
@@ -191,7 +192,7 @@ def run_pipeline(
         event(json.dumps({"stage": "audio", "status": "started"}))
         audio_start = time.perf_counter()
         processing_started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        with job.stage("audio"):
+        with Sampler() as sampler, job.stage("audio"):
             metadata = prepare_audio(job.media_path, audio_path, config, **({"cancel": job} if cancel_file else {}))
             metrics.update(metadata)
             metrics["prepared_audio_sha256"] = sha256(audio_path)
@@ -203,7 +204,8 @@ def run_pipeline(
                 processing_started_at=processing_started_at,
             )
             checkpoint()
-        metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start, "status": job.stages["audio"]})
+        metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start,
+                                  "status": job.stages["audio"], **sampler.result()})
         save()
         event(json.dumps(metrics["stages"][-1]))
         inference_stages = ("asr",) if asr_only else ("asr", "alignment", "diarization")
@@ -262,7 +264,7 @@ def run_pipeline(
 def _merge_project(project: Project, job: TranscriptionJob, checkpoint, metrics: dict, event) -> None:
     event(json.dumps({"stage": "merge", "status": "started"}))
     started = time.perf_counter()
-    with job.stage("merge"):
+    with Sampler() as sampler, job.stage("merge"):
         aligned, diarization = project.original_alignment, project.original_diarization
         merged = merge(project.original_asr, aligned, diarization["turns"], project.duration_ms,
                        exclusive_turns=diarization["exclusive_turns"])
@@ -276,5 +278,5 @@ def _merge_project(project: Project, job: TranscriptionJob, checkpoint, metrics:
         project.completed_stages = [*job.completed_stages, "merge"]
         checkpoint("completed")
     metrics["stages"].append({"stage": "merge", "status": "completed", "wall_seconds": time.perf_counter() - started,
-                              "gpu_used_mib_after_worker_exit": gpu_memory_mib()})
+                              **sampler.result(), "gpu_used_mib_after_worker_exit": gpu_memory_mib()})
     event(json.dumps({"stage": "merge", "status": "completed", "wall_seconds": metrics["stages"][-1]["wall_seconds"]}))
