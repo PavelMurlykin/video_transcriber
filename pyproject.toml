@@ -18,6 +18,9 @@ local-transcriber = "local_transcriber.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"local_transcriber.export" = ["fonts/*.ttf", "fonts/LICENSE_DEJAVU"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

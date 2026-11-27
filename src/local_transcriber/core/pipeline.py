@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import importlib.metadata
 import json
 from pathlib import Path
@@ -182,6 +183,7 @@ def run_pipeline(
         store = ProjectStore(project_db or directory.parent / DATABASE_FILENAME)
         event(json.dumps({"stage": "audio", "status": "started"}))
         audio_start = time.perf_counter()
+        processing_started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with job.stage("audio"):
             metadata = prepare_audio(job.media_path, audio_path, config, **({"cancel": job} if cancel_file else {}))
             metrics.update(metadata)
@@ -191,6 +193,7 @@ def run_pipeline(
                 duration_ms=metadata["duration_ms"], sample_rate=metadata["sample_rate"], channels=metadata["channels"],
                 speakers=[], segments=[], completed_stages=["audio"],
                 models_manifest_sha256=sha256(Path(config["manifest"])),
+                processing_started_at=processing_started_at,
             )
             checkpoint()
         metrics["stages"].append({"stage": "audio", "wall_seconds": time.perf_counter() - audio_start, "status": job.stages["audio"]})

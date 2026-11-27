@@ -7,7 +7,7 @@ import sys
 from .config import ConfigurationError, load_asr_config, load_config, load_media_config
 from .core.model_manager import verify_models
 from .core.transcription import ASROptions, LANGUAGES, PROFILES
-from .domain.errors import ASROutOfMemory, MediaError
+from .domain.errors import ASROutOfMemory, ExportError, MediaError
 from .storage.commands import add_project_commands, run_project_command
 from .storage.projects import ProjectStoreError, local_path
 
@@ -80,6 +80,9 @@ def main(argv=None):
     except MediaError as error:
         print(json.dumps({"status": "failed", "error_code": error.code, "hint": error.hint}), file=sys.stderr)
         return error.exit_code
+    except ExportError as error:
+        print(json.dumps({"status": "failed", "error_code": error.code, "hint": error.hint}), file=sys.stderr)
+        return 2
     except ASROutOfMemory as error:
         hint = ("Retry once with --profile memory and a new --run-dir." if args.profile != "memory"
                 else "Use a new --run-dir and retry with batch_size=1 or a CPU int8 configuration.")

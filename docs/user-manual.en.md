@@ -90,6 +90,42 @@ a project from the catalog does not run inference. With PySide6 missing,
 the launch command prints a setup hint and exits with code 2. See the
 [stage 6 report](stage-6-report.md) for validation results.
 
+### Transcript export
+
+Open a project and select Export. Choose a format, timestamp precision,
+timestamp and speaker visibility, and spacing between phrases. Select a local
+file to save. Export uses the latest saved edits. TXT uses UTF-8 with a
+separate checkbox to enable a BOM.
+
+TXT is available after the main setup. For DOCX and PDF, install the
+additional packages in the project `.venv` from the repository root.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --only-binary=:all: --require-hashes --no-deps -r requirements-export.lock
+```
+
+The installer uses the existing dependencies from `requirements.lock`.
+After setup, all three formats save locally. Each document includes the
+source file name without its path, the duration, the language and the UTC
+processing start date. Older projects show an unknown date. PDF embeds
+DejaVu Sans for Cyrillic. TXT and DOCX are available for characters outside
+that font.
+
+To export TXT from the CLI, replace PROJECT_ID with the ID from `projects list`.
+
+```powershell
+.\.venv\Scripts\python.exe -m local_transcriber projects export 'PROJECT_ID' --format txt --output artifacts\transcript.txt
+```
+
+For PDF or DOCX, use `--format pdf` or `--format docx` and the matching
+extension. `--precision milliseconds` adds milliseconds. The flags
+`--no-timestamps`, `--no-speakers`, and `--compact` hide timestamps,
+speaker names and the speaker legend, and spacing between phrases,
+respectively. Use `--bom` for TXT. Replacing an existing file requires
+`--overwrite` or confirmation in the app.
+
+See the [stage 7 report](stage-7-report.md) for validation results.
+
 ## Transcribing a recording
 
 For speech recognition without alignment or diarization:

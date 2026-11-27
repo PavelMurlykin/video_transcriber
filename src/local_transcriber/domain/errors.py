@@ -10,3 +10,10 @@ class MediaError(Exception):
 
 class ASROutOfMemory(RuntimeError):
     code = "ASR_GPU_OUT_OF_MEMORY"
+
+
+class ExportError(ValueError):
+    def __init__(self, code: str, hint: str):
+        super().__init__(hint)
+        self.code = code
+        self.hint = hint

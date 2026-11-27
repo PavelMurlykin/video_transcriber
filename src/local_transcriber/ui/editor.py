@@ -11,19 +11,13 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from local_transcriber.domain.timestamps import format_timestamp
 from local_transcriber.storage.editing import EditSession
 from local_transcriber.storage.projects import ProjectStoreError
 
 from .settings import absolute_local
 
 EDIT_ERRORS = (OSError, ValueError, ProjectStoreError, sqlite3.Error)
-
-
-def timestamp(milliseconds: int) -> str:
-    seconds, milliseconds = divmod(milliseconds, 1000)
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    return f"{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}"
 
 
 class TranscriptEditor(QWidget):
@@ -38,6 +32,8 @@ class TranscriptEditor(QWidget):
 
         self.search = QLineEdit()
         self.search.setPlaceholderText(t("Поиск по тексту и спикерам", "Search phrases and speakers"))
+        self.export_button = QPushButton(t("Экспорт…", "Export…"))
+        self.export_button.setEnabled(False)
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels([
             t("Начало", "Start"), t("Конец", "End"), t("Спикер", "Speaker"),
@@ -106,7 +102,7 @@ class TranscriptEditor(QWidget):
         self.seek.setRange(0, 0)
         self.seek.setAccessibleName(t("Позиция воспроизведения", "Playback position"))
         self.seek.valueChanged.connect(self._seek)
-        self.clock = QLabel(timestamp(0))
+        self.clock = QLabel(format_timestamp(0))
         self.play = QPushButton(t("Воспроизвести", "Play"))
         self.play.clicked.connect(self._toggle_play)
         self.rate = QComboBox()
@@ -143,7 +139,10 @@ class TranscriptEditor(QWidget):
         layout.addWidget(self.video)
         layout.addLayout(playback)
         layout.addWidget(self.media_status)
-        layout.addWidget(self.search)
+        search_actions = QHBoxLayout()
+        search_actions.addWidget(self.search, 1)
+        search_actions.addWidget(self.export_button)
+        layout.addLayout(search_actions)
         layout.addWidget(workspace, 1)
         self._populate_editor(None)
         self.play.setEnabled(False)
@@ -187,7 +186,7 @@ class TranscriptEditor(QWidget):
             for row, segment in enumerate(segments):
                 speaker = speakers.get(segment.speaker_id, self.t("Не определён", "Unknown"))
                 review = self.t("Проверить", "Check") if segment.requires_review else ""
-                values = (timestamp(segment.start_ms), timestamp(segment.end_ms), speaker, review, segment.text)
+                values = (format_timestamp(segment.start_ms), format_timestamp(segment.end_ms), speaker, review, segment.text)
                 for column, value in enumerate(values):
                     cell = QTableWidgetItem(value)
                     if column == 0:
@@ -374,7 +373,7 @@ class TranscriptEditor(QWidget):
         self.seek.blockSignals(True)
         self.seek.setValue(position)
         self.seek.blockSignals(False)
-        self.clock.setText(timestamp(position))
+        self.clock.setText(format_timestamp(position))
         self._highlight(position)
 
     def _highlight(self, position):

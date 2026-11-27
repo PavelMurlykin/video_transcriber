@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -16,12 +17,13 @@ pytest.importorskip("PySide6.QtWidgets")
 from PySide6.QtCore import QMimeData, QPointF, QTimer, Qt, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtMultimedia import QAudioBufferOutput, QMediaDevices, QMediaPlayer
-from PySide6.QtWidgets import QApplication, QInputDialog
+from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QInputDialog
 
 from local_transcriber.config import PATH_FIELDS
 from local_transcriber.domain.entities import Project, Segment, Speaker
 from local_transcriber.domain.transcript_schema import write_json
 from local_transcriber.storage.projects import ProjectStore
+from local_transcriber.ui.export_dialog import ExportDialog
 from local_transcriber.ui.settings import Settings
 from local_transcriber.ui.window import MainWindow
 
@@ -137,6 +139,38 @@ def test_settings_form_persists_device_batch_theme_and_results(window, tmp_path)
     assert (saved.theme, saved.language) == ("dark", "en")
 
 
+def test_export_uses_current_edit_and_chosen_txt_path(window, tmp_path, monkeypatch):
+    app, widget = window
+    store = ProjectStore(widget.settings.database)
+    project = Project(
+        "fixture", str(tmp_path / "Синтетическая запись.wav"), "ru", 2000,
+        [Speaker("a", "Ведущий")], [Segment("s1", 20, 1000, "a", "Черновик")], ["merge"],
+    )
+    store.create(project, status="completed")
+    widget._open_project(project.project_id)
+    widget.editor.text.setPlainText("Проверка экспорта")
+
+    def choose_options(dialog):
+        dialog.file_format.setCurrentIndex(dialog.file_format.findData("pdf"))
+        assert not dialog.bom.isEnabled()
+        dialog.file_format.setCurrentIndex(dialog.file_format.findData("txt"))
+        dialog.bom.setChecked(True)
+        dialog.precision.setCurrentIndex(dialog.precision.findData("milliseconds"))
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(ExportDialog, "exec", choose_options)
+    name = tmp_path / "Стенограмма"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args, **kwargs: (str(name), ""))
+    widget.editor.export_button.click()
+    assert widget.task == "export"
+    wait_for(app, lambda: widget.task is None)
+    assert widget.response == {"status": "exported", "format": "txt", "revision": 2}
+    target = name.with_suffix(".txt")
+    assert target.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert "[00:00:00.020] Ведущий: Проверка экспорта" in target.read_text(encoding="utf-8-sig")
+    assert widget.editor.export_button.isEnabled()
+
+
 def check_playback(app, editor, *, video_expected):
     player = editor.player
     buffers, frames = [], []
@@ -247,6 +281,8 @@ def test_full_desktop_run_in_windows_appcontainer(capfd):
         assert window.tabs.currentWidget() is window.editor
         project = window.editor.session.saved.project
         assert len(project.speakers) == 2 and project.segments and project.overlap_regions
+        started_at = datetime.fromisoformat(project.processing_started_at)
+        assert started_at.tzinfo is not None and started_at <= datetime.now(timezone.utc)
         video = check_playback(app, window.editor, video_expected=True)
 
         window.editor.text.setPlainText("Синтетическая правка для проверки")

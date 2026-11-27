@@ -81,6 +81,13 @@ retries a real job, switches tabs during processing, and verifies playing,
 seeking and pausing MP4 and MP3. It saves network evidence and metrics in the
 artifacts directory. See the [stage 6 report](stage-6-report.md).
 
+Stage 7 tests verify export from the editor, the shared transcript template,
+TXT encoding, DOCX text and page fields, and PDF font embedding and pagination.
+Install the locked export dependencies before running the standard suite.
+The acceptance run compares the three outputs from one edited project under
+AppContainer and checks page layout on synthetic transcripts. See the
+[stage 7 report](stage-7-report.md).
+
 Full pipeline acceptance requires all three model phases to complete on the
 RTX 5070, a readable JSON with two conditional speakers, word times and Russian
 text, and a run under OS network isolation with local resources.

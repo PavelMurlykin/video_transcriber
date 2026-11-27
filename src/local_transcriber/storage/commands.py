@@ -1,10 +1,14 @@
 """CLI access to saved projects without loading media or inference models."""
 
+import argparse
 import json
 from pathlib import Path
 import sys
 
+from local_transcriber.domain.errors import ExportError
 from local_transcriber.domain.transcript_schema import project_from_dict, project_to_dict
+from local_transcriber.export.document import ExportOptions, LANGUAGES, PRECISIONS
+from local_transcriber.export.service import FORMATS, export_project
 
 from .editing import EditSession
 from .projects import DATABASE_FILENAME, ProjectStore, ProjectStoreError, local_path
@@ -21,6 +25,18 @@ def add_project_commands(subparsers) -> None:
     edit = commands.add_parser("edit")
     edit.add_argument("project_id")
     edit.add_argument("--commands", type=Path, help="UTF-8 JSON Lines file (default: stdin)")
+    export = commands.add_parser("export", help="save the current transcript as a document")
+    export.add_argument("project_id")
+    export.add_argument("--format", choices=FORMATS, required=True)
+    export.add_argument("--output", type=Path, required=True, help="local file with the selected extension")
+    export.add_argument("--language", choices=LANGUAGES, default="ru", help="document headings and labels")
+    export.add_argument("--precision", choices=PRECISIONS, default="seconds")
+    export.add_argument("--no-timestamps", action="store_true")
+    export.add_argument("--no-speakers", action="store_true")
+    export.add_argument("--compact", action="store_true")
+    export.add_argument("--bom", action="store_true", help="write a UTF-8 BOM for TXT")
+    export.add_argument("--overwrite", action="store_true")
+    export.add_argument("--revision", type=int, help=argparse.SUPPRESS)
 
 
 def run_project_command(args) -> int:
@@ -42,6 +58,19 @@ def run_project_command(args) -> int:
         except FileExistsError:
             raise ProjectStoreError("PROJECT_OUTPUT_ALREADY_EXISTS") from None
         print(json.dumps({"project_id": saved.project.project_id, "status": saved.status, "revision": saved.revision}))
+    elif args.project_command == "export":
+        saved = store.load(args.project_id)
+        if args.revision is not None and saved.revision != args.revision:
+            raise ProjectStoreError("PROJECT_CHANGED")
+        target = local_path(args.output)
+        if target == store.path or target == Path(saved.project.media_path):
+            raise ExportError("INVALID_EXPORT_TARGET", "Choose a different file from the source media or project database.")
+        options = ExportOptions(
+            show_timestamps=not args.no_timestamps, precision=args.precision, show_speakers=not args.no_speakers,
+            separate_phrases=not args.compact, bom=args.bom, language=args.language,
+        )
+        export_project(saved.project, target, args.format, options, overwrite=args.overwrite)
+        print(json.dumps({"status": "exported", "format": args.format, "revision": saved.revision}))
     else:
         session = EditSession(store, args.project_id)
         if args.commands is None:

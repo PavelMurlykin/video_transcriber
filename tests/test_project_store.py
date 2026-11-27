@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import sqlite3
 import subprocess
@@ -186,6 +187,7 @@ def test_pipeline_saves_alignment_and_diarization_before_failed_merge(tmp_path, 
     saved = ProjectStore(tmp_path / DATABASE_FILENAME).load(metrics["project_id"])
     assert saved.status == "failed"
     assert saved.project.completed_stages == ["audio", "asr", "alignment", "diarization"]
+    assert datetime.fromisoformat(saved.project.processing_started_at).utcoffset().total_seconds() == 0
     assert saved.project.original_diarization == actual["diarization"]
     assert [stage["revision"] for stage in metrics["project_checkpoints"]] == [1, 2, 3, 4]
     assert (run / "audio.wav").is_file()

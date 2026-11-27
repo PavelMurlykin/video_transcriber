@@ -1,17 +1,20 @@
 from dataclasses import replace
+from pathlib import Path, PureWindowsPath
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
+    QApplication, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel,
     QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPlainTextEdit,
     QPushButton, QScrollArea, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from local_transcriber.config import PATH_FIELDS, ConfigurationError
 from local_transcriber.domain.entities import TRANSCRIPTION_STAGES
+from local_transcriber.domain.timestamps import format_timestamp
 from local_transcriber.storage.projects import ProjectStore
 
-from .editor import EDIT_ERRORS, TranscriptEditor, timestamp
+from .editor import EDIT_ERRORS, TranscriptEditor
+from .export_dialog import ExportDialog
 from .process import CliProcess
 from .settings import RunRequest, absolute_local
 
@@ -43,6 +46,7 @@ class MainWindow(QMainWindow):
         self.import_page = self._import_page()
         self.processing_page = self._processing_page()
         self.editor = TranscriptEditor(self.t)
+        self.editor.export_button.clicked.connect(self._export_project)
         self.settings_page = self._settings_page()
         self.tabs.addTab(self.import_page, self.t("Импорт и проекты", "Import and projects"))
         self.tabs.addTab(self.processing_page, self.t("Обработка", "Processing"))
@@ -204,6 +208,7 @@ class MainWindow(QMainWindow):
         self.open_selected.setEnabled(idle and self.projects.currentItem() is not None)
         self.save_settings.setEnabled(idle)
         self.verify.setEnabled(idle)
+        self.editor.export_button.setEnabled(idle and self.editor.session is not None)
 
     def _choose_source(self):
         source, _ = QFileDialog.getOpenFileName(self, self.t("Выбрать запись", "Choose recording"))
@@ -302,7 +307,7 @@ class MainWindow(QMainWindow):
         if task == "inspect":
             self.has_media = exit_code == 0
             duration = self.response.get("estimated_duration_ms")
-            self.duration.setText(timestamp(duration) if duration is not None else "—")
+            self.duration.setText(format_timestamp(duration) if duration is not None else "—")
             self.import_status.setText("" if self.has_media else self._error_hint(self.response))
         elif task == "verify":
             state = self.t("Локальные ресурсы проверены", "Local resources verified") if exit_code == 0 else self._error_hint(self.response)
@@ -310,6 +315,12 @@ class MainWindow(QMainWindow):
             self.settings_status.setText("\n".join([state, *map(str, errors)]))
         elif task == "run":
             self._finish_run(exit_code)
+        elif task == "export":
+            self.editor.setEnabled(True)
+            success = self.response.get("status") == "exported" and exit_code == 0
+            self.editor.status.setText(
+                self.t("Стенограмма сохранена", "Transcript saved") if success else self._error_hint(self.response),
+            )
         self._update_actions()
         if self.close_pending:
             QTimer.singleShot(0, self.close)
@@ -384,6 +395,48 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Local Transcriber", self._error_hint({"error_code": getattr(error, "code", "PROJECT_STORE_ERROR")}))
             return
         self.tabs.setCurrentWidget(self.editor)
+        self._update_actions()
+
+    def _export_project(self):
+        if self.task is not None or self.editor.session is None or not self.editor.flush():
+            return
+        dialog = ExportDialog(self, self.t)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        session = self.editor.session
+        file_format = dialog.file_format.currentData()
+        default_name = PureWindowsPath(session.saved.project.media_path).stem or "transcript"
+        filename, _ = QFileDialog.getSaveFileName(
+            self, self.t("Сохранить стенограмму", "Save transcript"),
+            str(self.settings.results / f"{default_name}.{file_format}"), f"{file_format.upper()} (*.{file_format})",
+            options=QFileDialog.Option.DontConfirmOverwrite,
+        )
+        if not filename:
+            return
+        suffix = f".{file_format}"
+        try:
+            target = absolute_local(filename if Path(filename).suffix else filename + suffix)
+        except EDIT_ERRORS as error:
+            self.editor.status.setText(self._error_hint({"error_code": getattr(error, "code", "EXPORT_WRITE_FAILED")}))
+            return
+        if target.suffix.lower() != suffix:
+            self.editor.status.setText(self._error_hint({"error_code": "INVALID_EXPORT_FORMAT"}))
+            return
+
+        options = dialog.arguments(target, self.language)
+        if target.exists():
+            response = QMessageBox.question(
+                self, "Local Transcriber", self.t("Заменить существующий файл?", "Replace the existing file?"),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No,
+            )
+            if response != QMessageBox.StandardButton.Yes:
+                return
+            options.append("--overwrite")
+        self.editor.status.setText(self.t("Экспорт стенограммы…", "Exporting transcript…"))
+        self.editor.setEnabled(False)
+        self._begin("export", ["--project-db", str(session.store.path), "projects", "export",
+                               session.saved.project.project_id, "--revision", str(session.saved.revision), *options])
 
     def _settings_changed(self, *_):
         self.settings_status.setText(self.t("Есть несохранённые настройки", "Unsaved settings"))
@@ -461,6 +514,20 @@ class MainWindow(QMainWindow):
                                    "Insufficient memory. Use the low-memory profile or reduce the batch size."),
             "INVALID_CONFIG": t("Проверьте настройки моделей и устройства.", "Check model and device settings."),
             "PROJECT_STORE_ERROR": t("Проверьте доступ к базе проектов.", "Check access to the project database."),
+            "PROJECT_CHANGED": t("Проект изменился в другой сессии. Откройте его заново.",
+                                 "The project changed in another session. Reopen it."),
+            "EXPORT_FILE_EXISTS": t("Выберите другое имя или подтвердите замену.",
+                                    "Choose a different name or confirm replacement."),
+            "EXPORT_WRITE_FAILED": t("Проверьте права на папку и закройте файл в других приложениях.",
+                                      "Check folder access and close the file in other apps."),
+            "INVALID_EXPORT_FORMAT": t("Расширение файла должно соответствовать выбранному формату.",
+                                        "Use the file extension for the selected format."),
+            "EXPORT_DEPENDENCIES_MISSING": t("Установите зависимости из requirements-export.lock.",
+                                             "Install the packages from requirements-export.lock."),
+            "PDF_UNSUPPORTED_CHARACTER": t("В тексте есть символы вне шрифта PDF. Выберите TXT или DOCX.",
+                                           "The PDF font lacks some characters. Use TXT or DOCX."),
+            "PDF_FONT_MISSING": t("Восстановите шрифты DejaVu Sans из проекта.",
+                                  "Restore the bundled DejaVu Sans fonts."),
         }
         hint = hints.get(code, payload.get("hint") or t("Проверьте настройки, локальные файлы и папку результатов.",
                                                        "Check settings, local files, and the results folder."))

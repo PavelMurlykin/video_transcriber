@@ -51,6 +51,7 @@ class Project:
     exclusive_diarization_turns: list[dict] | None = None
     overlap_regions: list[dict] | None = None
     original_diarization: dict | None = None
+    processing_started_at: str | None = None
 
 
 class StageStatus(StrEnum):
