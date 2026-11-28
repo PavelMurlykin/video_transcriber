@@ -2,12 +2,12 @@
 
 from pathlib import Path
 import subprocess
-import sys
 from tempfile import TemporaryFile
 import time
 
 from local_transcriber.domain.errors import MediaError
 from local_transcriber.domain.paths import NonLocalPath, resolve_local
+from local_transcriber.launch import worker_command
 from local_transcriber.workers.runtime_probe import COMPUTE_UNSUPPORTED, CT2_FAILED, CUDA_UNAVAILABLE, TORCH_FAILED
 
 from .media import CancelSignal, check_space
@@ -75,7 +75,7 @@ def _check_models(config: dict, *, asr_only: bool) -> list[str]:
 
 
 def _compute_error(device: str, compute_type: str, cancel: CancelSignal | None) -> str | None:
-    command = [sys.executable, "-m", "local_transcriber.workers.runtime_probe", device, compute_type]
+    command = worker_command("runtime_probe", device, compute_type)
     deadline = time.monotonic() + COMPUTE_TIMEOUT_SECONDS
     try:
         with subprocess.Popen(command, env=offline_environment(), stdin=subprocess.DEVNULL,

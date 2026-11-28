@@ -79,3 +79,4 @@ def test_cancelled_inference_terminates_real_child_and_marks_stage(tmp_path, mon
         thread.join(timeout=6)
     assert ready.exists() and processes[0].poll() is not None
     assert job.stages["asr"] == "cancelled"
+    assert not list(tmp_path.glob(".runtime-*"))

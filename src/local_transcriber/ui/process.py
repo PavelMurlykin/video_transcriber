@@ -1,9 +1,9 @@
 import json
-import sys
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
 from local_transcriber.core.offline_guard import offline_environment
+from local_transcriber.launch import cli_command
 
 
 class CliProcess(QObject):
@@ -13,7 +13,6 @@ class CliProcess(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.process = QProcess(self)
-        self.process.setProgram(sys.executable)
         environment = QProcessEnvironment()
         for key, value in offline_environment().items():
             environment.insert(key, value)
@@ -26,8 +25,8 @@ class CliProcess(QObject):
 
     def start(self, arguments: list[str]) -> None:
         self._buffers = [b"", b""]
-        self.process.setArguments(["-u", "-m", "local_transcriber", *arguments])
-        self.process.start()
+        program, *arguments = cli_command(*arguments)
+        self.process.start(program, arguments)
 
     def _stdout(self):
         self._read(0, bytes(self.process.readAllStandardOutput()))

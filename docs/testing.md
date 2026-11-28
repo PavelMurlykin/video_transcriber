@@ -121,3 +121,23 @@ use externally established Windows network isolation; do not label a normal
 connected run as OS-isolated. This script currently recognizes AppContainer
 evidence only. Reboot testing, long meetings, WER/CER/DER evaluation, export and
 UI checks belong to later stages and are not reported as passed at stage 0.
+
+# Windows installer acceptance
+
+Build the complete installer with the command in
+[the stage 10 report](stage-10-report.md). In a fresh Windows test profile,
+prepare the local models under
+`%USERPROFILE%\.lmstudio\models\local-transcriber`. Use a local two-speaker
+recording, a compatible NVIDIA driver, and OS-level network isolation.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_windows_install.ps1 `
+    -Installer C:\path\LocalTranscriber-0.0.1-windows-x64.exe -InputMedia C:\path\sample.mp3
+```
+
+The script checks direct TCP and DNS, runs Setup, checks the installed GUI
+and CUDA runtime, runs all transcription stages, exports TXT/DOCX/PDF,
+and removes the installed program. It verifies that the project JSON,
+database, and configuration have the same hashes after uninstalling.
+It limits PATH to Windows directories so the executables cannot rely on
+a Python interpreter on PATH. Test results stay in the test profile.

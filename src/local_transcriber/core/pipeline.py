@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 import threading
 import time
 
@@ -12,6 +13,7 @@ from local_transcriber.config import ConfigurationError, speaker_count_options
 from local_transcriber.domain.entities import Project, Segment, Speaker, StageStatus, TranscriptionJob
 from local_transcriber.domain.errors import ASROutOfMemory, MediaError, PipelineError
 from local_transcriber.domain.transcript_schema import project_to_dict, segment_from_dict, write_json
+from local_transcriber.launch import worker_command
 from local_transcriber.storage.projects import DATABASE_FILENAME, ProjectStore, ProjectStoreError
 
 from .media import create_run_directory, prepare_audio
@@ -94,19 +96,21 @@ def _asr_segments(asr: dict, duration_ms: int) -> list[Segment]:
 
 def _run_inference(stage: str, job: TranscriptionJob, config_path: Path, options: ASROptions) -> dict:
     started = time.perf_counter()
-    command = [
-        sys.executable, "-m", "local_transcriber.workers.transcription_worker", stage,
+    command = worker_command(
+        "transcription_worker", stage,
         "--config", str(config_path.resolve()), "--run-dir", str(job.run_dir),
-    ]
+    )
     if stage == "asr":
         command.extend(["--language", options.language, "--profile", options.profile])
         if options.terms_file is not None:
             command.extend(["--terms-file", str(options.terms_file)])
-    with Sampler() as sampler:
+    with TemporaryDirectory(prefix=".runtime-", dir=job.run_dir, ignore_cleanup_errors=True) as cache, \
+            Sampler() as sampler:
         # Library output can contain transcript text and the glossary.
         job.check_cancelled()
+        command.extend(["--cache-dir", cache])
         with subprocess.Popen(
-            command, env=offline_environment(job.run_dir / "runtime-cache"),
+            command, env=offline_environment(Path(cache)),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         ) as process:
             try:

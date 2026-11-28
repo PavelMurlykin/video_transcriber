@@ -1,0 +1,36 @@
+Local Transcriber — Windows build third-party notices
+
+CPython: Python Software Foundation License. https://www.python.org/downloads/
+PyInstaller bootloaders: GPL-2.0-or-later with the bootloader exception.
+https://pyinstaller.org/en/stable/license.html
+Inno Setup installer engine: Inno Setup License.
+https://jrsoftware.org/files/is/license.txt
+
+Qt/PySide6 and Shiboken: Qt for Python LGPL-3.0/GPL or commercial terms.
+Qt plugins are distributed as separate DLLs. Qt Multimedia includes its own
+FFmpeg libraries. See https://doc.qt.io/qtforpython-6/licenses.html and
+https://doc.qt.io/qt-6/qtmultimedia-attribution-ffmpeg.html.
+
+The standalone media tools are unmodified Gyan FFmpeg/FFprobe 9.0.2 Essentials
+for Windows, GPL v3. Their license and build configuration are in licenses/ffmpeg.
+Build supplier: https://www.gyan.dev/ffmpeg/builds/
+FFmpeg source revision: https://github.com/FFmpeg/FFmpeg/commit/946fcce07b
+For distribution of the installer to others, provide the corresponding source
+for those particular binaries and their linked GPL components under the GPL.
+
+PyTorch, TorchAudio, TorchVision and CTranslate2 use BSD/MIT-family licenses.
+CUDA runtime components and cuDNN included with the installed wheels are
+NVIDIA components subject to their respective redistribution terms.
+https://docs.nvidia.com/cuda/eula/
+https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html
+
+WhisperX uses BSD-2-Clause, faster-whisper and pyannote.audio use MIT,
+and Transformers uses Apache-2.0. Python wheel license files and notices
+available in the build environment are copied to licenses/python-packages.
+The bundled DejaVu fonts include the license in local_transcriber/export/fonts.
+
+Model weights are distributed separately by their publishers. The application
+uses already prepared local copies and the installer contains no model weights.
+Community-1 by pyannoteAI is published under CC BY 4.0 with gated access:
+https://huggingface.co/pyannote/speaker-diarization-community-1
+https://creativecommons.org/licenses/by/4.0/

@@ -8,7 +8,31 @@ Community-1, then saves version 1 JSON with timestamps and speakers. See the
 [stage 4 report](stage-4-report.md), and [stage 5 report](stage-5-report.md)
 for validation results.
 
-## Preparation
+## Install the Windows build
+
+Keep the installer EXE and its `.bin` file in the same folder. Run
+`LocalTranscriber-0.0.1-windows-x64.exe` and open **Local Transcriber** from
+the Start menu. Setup installs for the current user. The app runs without
+Python or internet access. CUDA mode requires a compatible NVIDIA driver.
+The bundle includes FFmpeg and FFprobe.
+
+Copy the prepared model directory with its SHA-256 manifest to
+`%USERPROFILE%\.lmstudio\models\local-transcriber`. Use the Settings tab to
+select models on another local drive. Prepare Community-1 separately using
+a Hugging Face account with access. Setup runs without an account and does
+not download models.
+
+The default configuration and projects are under
+`%LOCALAPPDATA%\LocalTranscriber`. Select another local results folder in
+the app if needed. Uninstalling from Installed apps preserves projects,
+settings, and the model directory.
+
+For terminal use, run `LocalTranscriberCLI.exe` from the installation
+directory. For the commands below, replace `python -m local_transcriber`
+with the path to this EXE. Run `LocalTranscriberCLI.exe check-runtime` to
+check local resources and the driver.
+
+## Set up the source environment
 
 Windows x64, Python 3.11–3.13, a compatible NVIDIA driver and sufficient free
 space for CUDA libraries and models are required. This machine uses Python

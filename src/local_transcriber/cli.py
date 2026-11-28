@@ -8,13 +8,14 @@ from .core.model_manager import verify_models
 from .core.transcription import ASROptions, LANGUAGES, PROFILES
 from .core.offline_guard import offline_runtime
 from .domain.errors import ASROutOfMemory, ExportError, MediaError, PipelineError
+from .launch import default_path, prepare_default_config
 from .storage.commands import add_project_commands, run_project_command
 from .storage.projects import ProjectStoreError, local_path
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Local Transcriber - offline media preparation and transcription")
-    parser.add_argument("--config", type=Path, default=Path("config.local.json"))
+    parser.add_argument("--config", type=Path)
     parser.add_argument("--project-db", type=Path, help="path to the local SQLite project database")
     subparsers = parser.add_subparsers(dest="command", required=True)
     add_project_commands(subparsers)
@@ -40,6 +41,10 @@ def main(argv=None):
             run.add_argument("--language", choices=LANGUAGES, default="ru")
     args = parser.parse_args(argv)
     try:
+        if args.config is None:
+            args.config = default_path("config.local.json")
+            if args.command != "projects":
+                prepare_default_config(args.config)
         with offline_runtime():
             return _dispatch(args)
     except KeyboardInterrupt:

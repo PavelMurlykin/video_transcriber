@@ -9,6 +9,7 @@ from local_transcriber.domain.errors import ExportError
 from local_transcriber.domain.transcript_schema import project_from_dict, project_to_dict
 from local_transcriber.export.document import ExportOptions, LANGUAGES, PRECISIONS
 from local_transcriber.export.service import FORMATS, export_project
+from local_transcriber.launch import default_path
 
 from .editing import EditSession
 from .projects import DATABASE_FILENAME, ProjectStore, ProjectStoreError, local_path
@@ -40,7 +41,7 @@ def add_project_commands(subparsers) -> None:
 
 
 def run_project_command(args) -> int:
-    store = ProjectStore(args.project_db or Path("artifacts") / DATABASE_FILENAME)
+    store = ProjectStore(args.project_db or default_path("artifacts") / DATABASE_FILENAME)
     if args.project_command == "list":
         print(json.dumps({"projects": store.list_projects()}))
     elif args.project_command == "import":

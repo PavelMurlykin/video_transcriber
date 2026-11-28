@@ -52,20 +52,21 @@ def execute(stage: str, config: dict, directory: Path, options: ASROptions):
     return {"torch_peak_allocated_bytes": peak, "after_release": released}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("stage", choices=["asr", "alignment", "diarization"])
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument("--cache-dir", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--language", choices=LANGUAGES, default="ru")
     parser.add_argument("--profile", choices=PROFILES, default="default")
     parser.add_argument("--terms-file", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     logging.disable(logging.CRITICAL)
     warnings.filterwarnings("ignore")
     status = {"stage": args.stage, "status": "failed"}
     try:
-        with offline_runtime(args.run_dir / "runtime-cache"), open(os.devnull, "w") as quiet, \
+        with offline_runtime(args.cache_dir or args.run_dir / "runtime-cache"), open(os.devnull, "w") as quiet, \
                 redirect_stdout(quiet), redirect_stderr(quiet):
             config = load_asr_config(args.config) if args.stage == "asr" else load_config(args.config)
             options = ASROptions(args.language, args.profile, args.terms_file)

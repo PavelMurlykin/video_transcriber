@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import sys
 
+from local_transcriber.launch import default_path, prepare_default_config
 from local_transcriber.storage.projects import ProjectStoreError, local_path
 
 from .settings import Settings
@@ -18,13 +19,13 @@ def configure_media_environment() -> None:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Local Transcriber desktop client")
-    parser.add_argument("--config", type=Path, default=Path("config.local.json"))
-    parser.add_argument("--preferences", type=Path, default=Path("config.ui.local.json"))
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--preferences", type=Path, default=default_path("config.ui.local.json"))
     args = parser.parse_args(argv)
     configure_media_environment()
     try:
         from PySide6.QtCore import QTimer
-        from PySide6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication, QMessageBox
         from .window import MainWindow
     except ModuleNotFoundError as error:
         if not (error.name or "").startswith(("PySide6", "shiboken6")):
@@ -33,13 +34,20 @@ def main(argv=None):
         return 2
 
     try:
-        config, preferences = local_path(args.config), local_path(args.preferences)
+        config = local_path(args.config or default_path("config.local.json"))
+        preferences = local_path(args.preferences)
         if config == preferences:
             raise ValueError("Configuration and preferences must use separate files")
+        if args.config is None and not preferences.is_file():
+            prepare_default_config(config)
         settings = Settings.load(config, preferences)
     except (OSError, ValueError, ProjectStoreError) as error:
-        print(f"Cannot load desktop settings ({type(error).__name__}); check --config and --preferences.",
-              file=sys.stderr)
+        message = f"Cannot load desktop settings ({type(error).__name__}); check --config and --preferences."
+        if getattr(sys, "frozen", False):
+            app = QApplication([sys.argv[0]])
+            QMessageBox.critical(None, "Local Transcriber", message)
+        else:
+            print(message, file=sys.stderr)
         return 2
     app = QApplication([sys.argv[0]])
     window = MainWindow(settings)
